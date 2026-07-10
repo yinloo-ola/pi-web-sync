@@ -5,7 +5,7 @@
  * Listens on PORT (default 8787).
  */
 
-import { WebSocketServer } from "ws";
+import { WebSocket, WebSocketServer } from "ws";
 
 const PORT = parseInt(process.env.PORT ?? "8787", 10);
 
