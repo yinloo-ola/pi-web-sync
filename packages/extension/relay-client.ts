@@ -1,4 +1,3 @@
-import { stub } from "../_ptk/stub";
 import type { RelayMessage } from "./types";
 
 /** WebSocket client that connects to the Cloudflare Worker relay. */
@@ -16,26 +15,49 @@ export class RelayClient {
 
   /** Connect to the relay WebSocket. Resolves when connected. */
   async connect(): Promise<void> {
-    return stub("relay-client.connect");
+    const ws = new WebSocket(`${this.url}?sessionId=${this.sessionId}`);
+
+    await new Promise<void>((resolve, reject) => {
+      ws.addEventListener("open", () => resolve());
+      ws.addEventListener("error", () => reject(new Error("WebSocket connection failed")));
+    });
+
+    ws.addEventListener("message", (event) => {
+      try {
+        const msg: RelayMessage = JSON.parse(event.data as string);
+        if (msg.type === "sync_request") {
+          this.syncRequestHandler?.();
+        } else {
+          this.messageHandler?.(msg);
+        }
+      } catch {
+        // Ignore malformed messages
+      }
+    });
+
+    this.ws = ws;
   }
 
   /** Disconnect from the relay. */
   disconnect(): void {
-    stub("relay-client.disconnect");
+    this.ws?.close();
+    this.ws = null;
   }
 
   /** Send a message to the relay. */
   send(message: RelayMessage): void {
-    stub("relay-client.send");
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(message));
+    }
   }
 
   /** Register handler for incoming messages from the web app. */
   onMessage(handler: (msg: RelayMessage) => void): void {
-    stub("relay-client.onMessage");
+    this.messageHandler = handler;
   }
 
   /** Register handler for sync requests from the web app. */
   onSyncRequest(handler: () => void): void {
-    stub("relay-client.onSyncRequest");
+    this.syncRequestHandler = handler;
   }
 }
