@@ -1,0 +1,27 @@
+{
+  "name": "pi-web-sync",
+  "version": "0.1.0",
+  "description": "Sync pi sessions with a web app via WebSocket relay",
+  "files": [
+    "index.ts",
+    "relay-client.ts",
+    "types.ts"
+  ],
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "keywords": [
+    "pi",
+    "extension",
+    "sync",
+    "websocket"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260710.1",
+    "@types/node": "^26.1.1",
+    "typescript": "^5.9.3"
+  }
+}

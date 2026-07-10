@@ -1,0 +1,16 @@
+{
+  "name": "pi-web-sync-relay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WebSocket relay for pi-web-sync",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260710.1",
+    "@types/node": "^26.1.1",
+    "typescript": "^5.0.0",
+    "wrangler": "^3.0.0"
+  }
+}
