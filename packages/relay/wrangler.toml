@@ -9,7 +9,7 @@ class_name = "SessionDO"
 
 [[migrations]]
 tag = "v1"
-new_classes = ["SessionDO"]
+new_sqlite_classes = ["SessionDO"]
 
 # Local dev: use relay-server.ts (npm run dev)
 # Cloudflare Workers cannot share WebSocket objects across fetch requests

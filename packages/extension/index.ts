@@ -2,8 +2,8 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-c
 import { RelayClient } from "./relay-client";
 import type { RelayMessage } from "./types";
 
-const RELAY_URL = process.env.PI_WEB_SYNC_RELAY_URL ?? "ws://localhost:8787";
-const WEBAPP_URL = process.env.PI_WEB_SYNC_WEBAPP_URL ?? "http://localhost:5173";
+const RELAY_URL = process.env.PI_WEB_SYNC_RELAY_URL ?? "wss://pi-web-sync-relay.ola-app.workers.dev";
+const WEBAPP_URL = process.env.PI_WEB_SYNC_WEBAPP_URL ?? "https://pi-web-sync-webapp.pages.dev";
 
 /** Extract plain text from pi message content blocks. */
 function extractText(content: unknown): string {
