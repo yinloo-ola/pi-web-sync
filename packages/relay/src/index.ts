@@ -46,7 +46,7 @@ export default {
     sessions.set(sessionId, pair);
 
     // Set up message forwarding
-    setupForwarding(server, clientType, sessionId, pair);
+    setupForwarding(server, clientType, pair);
 
     // Handle disconnection
     server.addEventListener("close", () => {
@@ -63,7 +63,6 @@ export default {
 function setupForwarding(
   ws: WebSocket,
   clientType: string,
-  sessionId: string,
   pair: { pi: WebSocket | null; web: WebSocket | null },
 ): void {
   ws.addEventListener("message", (event) => {

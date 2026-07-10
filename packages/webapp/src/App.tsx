@@ -77,7 +77,6 @@ export default function App() {
 
   return (
     <Chat
-      sessionId={sessionId}
       messages={messages}
       onSendMessage={handleSend}
       connectionState={state}

@@ -25,14 +25,19 @@ export function useRelay(
     }
 
     setState("connecting");
-    const url = new URL(relayUrl);
-    url.searchParams.set("sessionId", sessionId);
-    url.searchParams.set("client", "web");
-
-    const ws = new WebSocket(url.toString());
+    const wsUrl = `${relayUrl}/session/${sessionId}?client=web`;
+    const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
-    ws.addEventListener("open", () => setState("connected"));
+    ws.addEventListener("open", () => {
+      setState("connected");
+      // Request full history from pi on connect
+      ws.send(JSON.stringify({
+        type: "sync_request",
+        sessionId,
+        payload: {},
+      }));
+    });
     ws.addEventListener("close", () => setState("disconnected"));
     ws.addEventListener("error", () => setState("error"));
     ws.addEventListener("message", (event) => {

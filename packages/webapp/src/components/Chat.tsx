@@ -4,7 +4,6 @@ import { MessageBubble } from "./MessageBubble";
 import type { RelayState } from "../hooks/useRelay";
 
 interface ChatProps {
-  sessionId: string;
   messages: ChatMessage[];
   onSendMessage: (text: string) => void;
   connectionState: RelayState;

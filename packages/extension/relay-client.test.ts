@@ -60,11 +60,11 @@ function triggerError() {
 
 describe("RelayClient", () => {
   describe("connect", () => {
-    it("connects to the relay URL with sessionId as query param [current behavior]", async () => {
+    it("connects to the relay URL with path-based session ID and client=pi", async () => {
       const client = new RelayClient("wss://relay.test", "abc123");
       const connectPromise = client.connect();
 
-      expect(lastWsUrl).toBe("wss://relay.test?sessionId=abc123");
+      expect(lastWsUrl).toBe("wss://relay.test/session/abc123?client=pi");
 
       triggerOpen();
       await connectPromise;

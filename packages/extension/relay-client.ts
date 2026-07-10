@@ -15,7 +15,7 @@ export class RelayClient {
 
   /** Connect to the relay WebSocket. Resolves when connected. */
   async connect(): Promise<void> {
-    const ws = new WebSocket(`${this.url}?sessionId=${this.sessionId}`);
+    const ws = new WebSocket(`${this.url}/session/${this.sessionId}?client=pi`);
 
     await new Promise<void>((resolve, reject) => {
       ws.addEventListener("open", () => resolve());
