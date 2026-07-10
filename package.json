@@ -7,6 +7,6 @@
     "packages/webapp"
   ],
   "dependencies": {
-    "pi-web-sync": "^0.1.1"
+    "pi-web-sync": "^0.1.2"
   }
 }
