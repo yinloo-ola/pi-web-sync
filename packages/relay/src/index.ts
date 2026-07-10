@@ -116,7 +116,7 @@ export default {
     }
 
     // Extract session ID from path: /session/:id
-    const match = url.pathname.match(/^\/session\/([a-f0-9]+)$/);
+    const match = url.pathname.match(/^\/session\/([^/]+)$/);
     if (!match) {
       return new Response("Not found. Use /session/<session-id>", { status: 404 });
     }

@@ -16,11 +16,11 @@ const wss = new WebSocketServer({ port: PORT });
 
 wss.on("connection", (ws, request) => {
   const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
-  const match = url.pathname.match(/^\/session\/([a-f0-9]+)$/);
+  const match = url.pathname.match(/^\/session\/([^/]+)$/);
 
   if (!match) {
     console.error(`[relay] rejected: invalid path "${url.pathname}"`);
-    ws.close(4001, "Invalid session path — expected /session/<hex-id>");
+    ws.close(4001, "Invalid session path — expected /session/<id>");
     return;
   }
 

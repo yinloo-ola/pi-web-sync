@@ -8,9 +8,8 @@ const DEFAULT_RELAY_URL = import.meta.env.VITE_RELAY_URL ?? "wss://pi-web-sync-r
 
 /** Extract session ID from URL path: /session/<id>. */
 function getSessionId(): string {
-  const match = window.location.pathname.match(/^\/session\/([a-f0-9]+)$/);
+  const match = window.location.pathname.match(/^\/session\/([^/]+)$/);
   if (match) return match[1];
-  // Fallback: show an error UI instead of crashing
   return "";
 }
 
