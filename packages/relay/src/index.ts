@@ -1,5 +1,3 @@
-import { stub } from "../../_ptk/stub";
-
 interface Env {
   // Cloudflare Worker env bindings (if any)
 }
@@ -68,5 +66,10 @@ function setupForwarding(
   sessionId: string,
   pair: { pi: WebSocket | null; web: WebSocket | null },
 ): void {
-  return stub("relay.setupForwarding");
+  ws.addEventListener("message", (event) => {
+    const other = clientType === "pi" ? pair.web : pair.pi;
+    if (other && other.readyState === WebSocket.READY_STATE_OPEN) {
+      other.send(event.data);
+    }
+  });
 }
