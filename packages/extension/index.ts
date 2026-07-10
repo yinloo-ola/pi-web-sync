@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { RelayClient } from "./relay-client";
 import type { RelayMessage } from "./types";
 
@@ -105,54 +105,46 @@ export default function (pi: ExtensionAPI) {
     assistantBuffer = "";
   }
 
-  // Handle /web-sync commands
-  // NOTE: unknown /-prefixed messages still reach the input handler — pi only intercepts
-  // known built-in commands (/web, /help, etc.). Unknown ones pass through as user input.
-  pi.on("input", async (event, ctx) => {
-    // Don't process messages from the web app itself
-    if (event.source === "extension") return { action: "continue" };
-
-    const text = event.text;
-
-    // Check for /web-sync commands
-    if (text.startsWith("/web-sync ") || text === "/web-sync") {
-      // Stop the message from reaching the LLM
-      const parts = text.split(" ");
-      const command = parts[1];
-
-      if (text === "/web-sync" || command === "connect") {
+  // Register /web-sync command (gets auto-complete in pi)
+  pi.registerCommand("web-sync", {
+    description: "Sync pi session with web app — connect, disconnect, or status",
+    handler: async (args, ctx: ExtensionCommandContext) => {
+      if (!args || args.startsWith("connect")) {
+        // /web-sync or /web-sync connect [relay_url] [webapp_url]
         if (client) {
           ctx.ui.notify("Web sync: already connected", "info");
-        } else {
-          // Optional args: [relay_url] [webapp_url]
-          if (parts[2]) relayUrl = parts[2];
-          if (parts[3]) webappUrl = parts[3];
-          await connectRelay(ctx);
+          return;
         }
-      } else if (command === "disconnect") {
+        const parts = args ? args.split(" ") : [];
+        if (parts[1]) relayUrl = parts[1];
+        if (parts[2]) webappUrl = parts[2];
+        await connectRelay(ctx);
+      } else if (args.startsWith("disconnect")) {
         if (!client) {
           ctx.ui.notify("Web sync: not connected", "info");
         } else {
           disconnectRelay();
           ctx.ui.notify("Web sync: disconnected", "info");
         }
-      } else if (command === "status") {
+      } else if (args.startsWith("status")) {
         if (client && sessionId) {
           ctx.ui.notify(`Web sync: connected — ${getSessionUrl(sessionId, webappUrl)}`, "info");
         } else {
           ctx.ui.notify("Web sync: not connected", "info");
         }
       }
+    },
+  });
 
-      return { action: "stop" };
-    }
+  // Forward non-command user messages to web app (if connected)
+  pi.on("input", async (event, ctx) => {
+    if (event.source === "extension") return { action: "continue" };
 
-    // Forward non-command user messages to web app (if connected)
     if (client) {
       client.send({
         type: "user_message",
         sessionId: sessionId!,
-        payload: { role: "user", text, timestamp: Date.now() },
+        payload: { role: "user", text: event.text, timestamp: Date.now() },
       });
     }
 
