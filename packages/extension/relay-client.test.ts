@@ -144,6 +144,20 @@ describe("RelayClient", () => {
 
       expect(syncHandler).toHaveBeenCalled();
     });
+
+    it("does NOT forward peer_disconnected to message handler", async () => {
+      const client = new RelayClient("wss://relay.test", "abc123");
+      const handler = vi.fn();
+      client.onMessage(handler);
+
+      const connectPromise = client.connect();
+      triggerOpen();
+      await connectPromise;
+
+      triggerMessage(JSON.stringify({ type: "peer_disconnected", sessionId: "abc123", payload: { peer: "web" } }));
+
+      expect(handler).not.toHaveBeenCalled();
+    });
   });
 
   describe("disconnect", () => {

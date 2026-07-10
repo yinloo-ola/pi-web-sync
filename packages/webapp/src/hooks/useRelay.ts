@@ -3,6 +3,8 @@ import type { RelayMessage } from "../types";
 
 /** Connection state for the relay WebSocket. */
 export type RelayState = "connecting" | "connected" | "disconnected" | "error";
+/** Whether pi is connected to this session. */
+export type PiStatus = "connected" | "disconnected" | "unknown";
 
 /** Hook that manages WebSocket connection to the relay. Returns state, send function, and message handler. */
 export function useRelay(
@@ -11,10 +13,12 @@ export function useRelay(
   onMessage: (msg: RelayMessage) => void,
 ): {
   state: RelayState;
+  piStatus: PiStatus;
   send: (msg: RelayMessage) => void;
   reconnect: () => void;
 } {
   const [state, setState] = useState<RelayState>("disconnected");
+  const [piStatus, setPiStatus] = useState<PiStatus>("unknown");
   const wsRef = useRef<WebSocket | null>(null);
   const onMessageRef = useRef(onMessage);
   onMessageRef.current = onMessage;
@@ -26,6 +30,7 @@ export function useRelay(
     }
 
     setState("connecting");
+    setPiStatus("unknown");
     const wsUrl = `${relayUrl}/session/${sessionId}?client=web`;
     console.log("[useRelay] connecting to", wsUrl);
     const ws = new WebSocket(wsUrl);
@@ -45,6 +50,7 @@ export function useRelay(
     ws.addEventListener("close", (event) => {
       console.log("[useRelay] closed: code=", event.code, "reason=", event.reason);
       setState("disconnected");
+      setPiStatus("unknown");
     });
     ws.addEventListener("error", (event) => {
       console.error("[useRelay] error event", event);
@@ -56,6 +62,16 @@ export function useRelay(
         const raw = event.data instanceof Blob ? await event.data.text() : event.data;
         const msg: RelayMessage = JSON.parse(raw as string);
         console.log("[useRelay] received message:", msg.type);
+
+        // Handle peer_disconnected specially
+        if (msg.type === "peer_disconnected") {
+          const payload = msg.payload as { peer: string };
+          if (payload.peer === "pi") {
+            setPiStatus("disconnected");
+          }
+          return; // Don't forward to app for peer_disconnected
+        }
+
         onMessageRef.current(msg);
       } catch (e) {
         console.error("[useRelay] failed to parse message:", event.data, e);
@@ -84,5 +100,5 @@ export function useRelay(
     connect();
   }, [connect]);
 
-  return { state, send, reconnect };
+  return { state, piStatus, send, reconnect };
 }

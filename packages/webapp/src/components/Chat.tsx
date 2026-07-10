@@ -2,25 +2,35 @@ import { useRef, useState, useEffect } from "react";
 import type { ChatMessage } from "../types";
 import { MessageBubble } from "./MessageBubble";
 import type { RelayState } from "../hooks/useRelay";
+import type { PiStatus } from "../hooks/useRelay";
 
 interface ChatProps {
   messages: ChatMessage[];
   onSendMessage: (text: string) => void;
   connectionState: RelayState;
+  piStatus: PiStatus;
 }
 
-const STATUS_LABELS: Record<RelayState, { text: string; color: string }> = {
+const RELAY_STATUS_LABELS: Record<RelayState, { text: string; color: string }> = {
   connecting: { text: "Connecting…", color: "#FF9500" },
   connected: { text: "Connected", color: "#34C759" },
   disconnected: { text: "Disconnected", color: "#FF3B30" },
   error: { text: "Error", color: "#FF3B30" },
 };
 
+const PI_STATUS_LABELS: Record<PiStatus, { text: string; color: string }> = {
+  connected: { text: "Pi Connected", color: "#34C759" },
+  disconnected: { text: "Pi Disconnected", color: "#FF3B30" },
+  unknown: { text: "Pi Status Unknown", color: "#FF9500" },
+};
+
 /** Main chat UI: message list, input box, connection status. */
-export function Chat({ messages, onSendMessage, connectionState }: ChatProps) {
+export function Chat({ messages, onSendMessage, connectionState, piStatus }: ChatProps) {
   const [input, setInput] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
-  const status = STATUS_LABELS[connectionState];
+  const relayStatus = RELAY_STATUS_LABELS[connectionState];
+  const piStatusLabel = PI_STATUS_LABELS[piStatus];
+  const canSend = connectionState === "connected" && piStatus !== "disconnected";
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -44,19 +54,33 @@ export function Chat({ messages, onSendMessage, connectionState }: ChatProps) {
           borderBottom: "1px solid #E5E5EA",
           display: "flex",
           alignItems: "center",
-          gap: 8,
+          gap: 16,
         }}
       >
-        <span
-          style={{
-            width: 8,
-            height: 8,
-            borderRadius: "50%",
-            backgroundColor: status.color,
-            display: "inline-block",
-          }}
-        />
-        <span style={{ fontSize: 14, color: "#8E8E93" }}>{status.text}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              backgroundColor: relayStatus.color,
+              display: "inline-block",
+            }}
+          />
+          <span style={{ fontSize: 13, color: "#8E8E93" }}>Relay: {relayStatus.text}</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              backgroundColor: piStatusLabel.color,
+              display: "inline-block",
+            }}
+          />
+          <span style={{ fontSize: 13, color: "#8E8E93" }}>{piStatusLabel.text}</span>
+        </div>
       </div>
 
       {/* Message list */}
@@ -70,7 +94,7 @@ export function Chat({ messages, onSendMessage, connectionState }: ChatProps) {
       >
         {messages.length === 0 && (
           <p style={{ textAlign: "center", color: "#8E8E93", marginTop: 40 }}>
-            No messages yet. Start typing in pi or below.
+            No messages yet. Type <code>/web-sync connect</code> in pi, then start typing.
           </p>
         )}
         {messages.map((msg) => (
@@ -92,8 +116,8 @@ export function Chat({ messages, onSendMessage, connectionState }: ChatProps) {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Type a message…"
-          disabled={connectionState !== "connected"}
+          placeholder={canSend ? "Type a message…" : "Waiting for relay connection…"}
+          disabled={!canSend}
           style={{
             flex: 1,
             padding: "10px 14px",
@@ -105,7 +129,7 @@ export function Chat({ messages, onSendMessage, connectionState }: ChatProps) {
         />
         <button
           type="submit"
-          disabled={!input.trim() || connectionState !== "connected"}
+          disabled={!input.trim() || !canSend}
           style={{
             padding: "10px 20px",
             borderRadius: 20,
@@ -114,7 +138,7 @@ export function Chat({ messages, onSendMessage, connectionState }: ChatProps) {
             color: "white",
             fontSize: 16,
             cursor: "pointer",
-            opacity: !input.trim() || connectionState !== "connected" ? 0.5 : 1,
+            opacity: !input.trim() || !canSend ? 0.5 : 1,
           }}
         >
           Send

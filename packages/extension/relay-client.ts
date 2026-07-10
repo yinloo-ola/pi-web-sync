@@ -1,6 +1,6 @@
 import type { RelayMessage } from "./types";
 
-/** WebSocket client that connects to the Cloudflare Worker relay. */
+/** WebSocket client that connects to the relay. */
 export class RelayClient {
   private ws: WebSocket | null = null;
   private url: string;
@@ -27,7 +27,8 @@ export class RelayClient {
         const msg: RelayMessage = JSON.parse(event.data as string);
         if (msg.type === "sync_request") {
           this.syncRequestHandler?.();
-        } else {
+        } else if (msg.type !== "peer_disconnected") {
+          // Don't forward peer_disconnected to the message handler
           this.messageHandler?.(msg);
         }
       } catch {

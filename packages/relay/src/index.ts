@@ -3,25 +3,95 @@
 /**
  * Cloudflare Worker WebSocket relay (PRODUCTION).
  *
- * NOTE: This requires Durable Objects for production deployment.
- * Cloudflare Workers cannot share WebSocket objects across fetch requests
- * without Durable Objects ("Cannot perform I/O on behalf of a different request").
+ * Uses Durable Objects to share WebSocket state across Workers.
+ * Each session gets its own Durable Object instance.
  *
- * For local development, use relay-server.ts instead:
- *   cd packages/relay && npm run dev
+ * Deploy:
+ *   wrangler deploy
+ *
+ * Local dev: use relay-server.ts (npm run dev)
  */
 
 interface Env {
-  // Cloudflare Worker env bindings (if any)
+  SESSION: DurableObjectNamespace;
 }
 
-/** Session ID → paired WebSocket connections (pi + web). */
-const sessions = new Map<string, { pi: WebSocket | null; web: WebSocket | null }>();
+/** Durable Object that holds WebSocket connections for one session and relays messages between them. */
+export class SessionDO implements DurableObject {
+  private storage: DurableObjectStorage;
 
-/** Cloudflare Worker that relays WebSocket messages between pi and web app. */
+  // WebSocket connections
+  private pi: WebSocket | null = null;
+  private web: WebSocket | null = null;
+
+  constructor(ctx: DurableObjectState) {
+    this.storage = ctx.storage;
+  }
+
+  /** Called when a client connects to this DO via the Worker's fetch handler. */
+  async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    const clientType = url.searchParams.get("client");
+
+    if (!clientType || !["pi", "web"].includes(clientType)) {
+      return new Response("Missing ?client=pi or ?client=web", { status: 400 });
+    }
+
+    // Create WebSocket pair
+    const webSocketPair = new WebSocketPair();
+    const [client, server] = Object.values(webSocketPair);
+
+    server.accept();
+
+    // Store this connection, close old one of same type
+    if (clientType === "pi") {
+      this.pi?.close();
+      this.pi = server;
+    } else {
+      this.web?.close();
+      this.web = server;
+    }
+
+    // Forward messages to the other peer
+    server.addEventListener("message", (event: MessageEvent) => {
+      const other = clientType === "pi" ? this.web : this.pi;
+      if (other && other.readyState === WebSocket.READY_STATE_OPEN) {
+        other.send(event.data as string);
+      }
+    });
+
+    // On disconnect, notify the other peer
+    server.addEventListener("close", () => {
+      const other = clientType === "pi" ? this.web : this.pi;
+      if (other && other.readyState === WebSocket.READY_STATE_OPEN) {
+        other.send(JSON.stringify({
+          type: "peer_disconnected",
+          sessionId: url.pathname.split("/").pop() ?? "",
+          payload: { peer: clientType },
+        }));
+      }
+      if (clientType === "pi") this.pi = null;
+      else this.web = null;
+    });
+
+    server.addEventListener("error", () => {
+      if (clientType === "pi") this.pi = null;
+      else this.web = null;
+    });
+
+    return new Response(null, { status: 101, webSocket: client });
+  }
+}
+
+/** Cloudflare Worker entry point. */
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+
+    // Health check
+    if (url.pathname === "/health") {
+      return new Response("ok", { status: 200 });
+    }
 
     // Extract session ID from path: /session/:id
     const match = url.pathname.match(/^\/session\/([a-f0-9]+)$/);
@@ -30,58 +100,11 @@ export default {
     }
 
     const sessionId = match[1];
-    const clientType = url.searchParams.get("client"); // "pi" or "web"
 
-    if (!clientType || !["pi", "web"].includes(clientType)) {
-      return new Response("Missing ?client=pi or ?client=web", { status: 400 });
-    }
+    // Route to Durable Object for this session
+    const doId = env.SESSION.idFromName(sessionId);
+    const stub = env.SESSION.get(doId);
 
-    // Upgrade to WebSocket
-    const pair = sessions.get(sessionId) ?? { pi: null, web: null };
-
-    // HAZARD: WebSocket upgrade API — verify Cloudflare Worker WebSocket upgrade pattern
-    const webSocketPair = new WebSocketPair();
-    const [client, server] = Object.values(webSocketPair);
-
-    // Accept the server side
-    server.accept();
-
-    // Store this client
-    if (clientType === "pi") {
-      // Close existing pi connection if any
-      pair.pi?.close();
-      pair.pi = server;
-    } else {
-      // Close existing web connection if any
-      pair.web?.close();
-      pair.web = server;
-    }
-    sessions.set(sessionId, pair);
-
-    // Set up message forwarding
-    setupForwarding(server, clientType, pair);
-
-    // Handle disconnection
-    server.addEventListener("close", () => {
-      if (clientType === "pi") pair.pi = null;
-      else pair.web = null;
-      if (!pair.pi && !pair.web) sessions.delete(sessionId);
-    });
-
-    return new Response(null, { status: 101, webSocket: client });
+    return stub.fetch(request);
   },
 };
-
-/** Forward messages from one client to the other. */
-function setupForwarding(
-  ws: WebSocket,
-  clientType: string,
-  pair: { pi: WebSocket | null; web: WebSocket | null },
-): void {
-  ws.addEventListener("message", (event) => {
-    const other = clientType === "pi" ? pair.web : pair.pi;
-    if (other && other.readyState === WebSocket.READY_STATE_OPEN) {
-      other.send(event.data);
-    }
-  });
-}

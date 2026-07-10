@@ -63,6 +63,17 @@ wss.on("connection", (ws, request) => {
   ws.on("close", (code, reason) => {
     if (clientType === "pi") pair.pi = null;
     else pair.web = null;
+
+    // Notify the other peer that this one disconnected
+    const other = clientType === "pi" ? pair.web : pair.pi;
+    if (other && other.readyState === ws.OPEN) {
+      other.send(JSON.stringify({
+        type: "peer_disconnected",
+        sessionId,
+        payload: { peer: clientType },
+      }));
+    }
+
     if (!pair.pi && !pair.web) sessions.delete(sessionId);
     console.log(`[relay] ${clientType} disconnected from session ${sessionId} (code=${code}, reason=${reason})`);
   });

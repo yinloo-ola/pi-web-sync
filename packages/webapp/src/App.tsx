@@ -36,7 +36,6 @@ export default function App() {
       console.log("[App] handleMessage:", msg.type);
       if (msg.type === "user_message") {
         const payload = msg.payload as { text: string; timestamp: number };
-        console.log("[App] adding user message:", payload.text);
         addMessage({
           id: `${msg.sessionId}-${payload.timestamp}`,
           role: "user",
@@ -47,7 +46,6 @@ export default function App() {
         // Deltas are accumulated into done messages — skip for now
       } else if (msg.type === "assistant_done") {
         const payload = msg.payload as { text: string; timestamp: number };
-        console.log("[App] adding assistant message:", payload.text.slice(0, 50));
         addMessage({
           id: `${msg.sessionId}-${payload.timestamp}`,
           role: "assistant",
@@ -59,7 +57,7 @@ export default function App() {
     [addMessage],
   );
 
-  const { state, send } = useRelay(sessionId, DEFAULT_RELAY_URL, handleMessage);
+  const { state, piStatus, send } = useRelay(sessionId, DEFAULT_RELAY_URL, handleMessage);
 
   const handleSend = useCallback(
     (text: string) => {
@@ -83,6 +81,7 @@ export default function App() {
       messages={messages}
       onSendMessage={handleSend}
       connectionState={state}
+      piStatus={piStatus}
     />
   );
 }

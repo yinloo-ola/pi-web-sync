@@ -5,7 +5,8 @@ export type MessageType =
   | "assistant_delta"
   | "assistant_done"
   | "sync_request"
-  | "sync_response";
+  | "sync_response"
+  | "peer_disconnected";
 
 export interface RelayMessage {
   type: MessageType;

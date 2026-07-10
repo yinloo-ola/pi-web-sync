@@ -27,8 +27,8 @@ function extractText(content: unknown): string {
 }
 
 /** Build the web app URL for a given session ID. */
-function getSessionUrl(sessionId: string): string {
-  return `${WEBAPP_URL}/session/${sessionId}`;
+function getSessionUrl(sessionId: string, webappUrl: string): string {
+  return `${webappUrl}/session/${sessionId}`;
 }
 
 /** Pi extension that syncs the current session with a web app via WebSocket relay. */
@@ -36,88 +36,127 @@ export default function (pi: ExtensionAPI) {
   let client: RelayClient | null = null;
   let sessionId: string | null = null;
   let assistantBuffer = "";
-  /** Buffer messages sent before WebSocket connects */
-  let pendingMessages: Array<{ text: string; timestamp: number }> = [];
+  let relayUrl = RELAY_URL;
+  let webappUrl = WEBAPP_URL;
 
-  pi.on("session_start", async (event, ctx) => {
-    sessionId = generateSessionId();
+  /** Attempt to connect to the relay. Returns true on success. */
+  async function connectRelay(ctx: { ui: ExtensionAPI["ui"] }): Promise<boolean> {
+    const sid = generateSessionId();
+    sessionId = sid;
 
-    // Connect to relay
     try {
-      client = new RelayClient(RELAY_URL, sessionId);
+      client = new RelayClient(relayUrl, sessionId);
       await client.connect();
       console.log("[pi-web-sync] connected to relay");
 
-      // Flush pending messages
-      for (const msg of pendingMessages) {
-        client.send({
-          type: "user_message",
-          sessionId,
-          payload: { role: "user", text: msg.text, timestamp: msg.timestamp },
-        });
-      }
-      pendingMessages = [];
+      // Listen for messages from web app
+      client.onMessage(async (msg: RelayMessage) => {
+        if (msg.type === "user_message") {
+          const payload = msg.payload as { text: string };
+          pi.sendUserMessage(payload.text);
+        }
+      });
+
+      // Handle sync requests from web app (full history)
+      client.onSyncRequest(async () => {
+        try {
+          const entries = ctx.sessionManager.getBranch();
+          const messages = entries
+            .filter((e: Record<string, unknown>) => (e as { type: string }).type === "message")
+            .map((e: Record<string, unknown>) => {
+              const msg = (e as { message: Record<string, unknown> }).message;
+              if (msg.role === "user") {
+                return { role: "user" as const, text: extractText(msg.content), timestamp: msg.timestamp ?? Date.now() };
+              }
+              if (msg.role === "assistant") {
+                return { role: "assistant" as const, text: extractText(msg.content), timestamp: msg.timestamp ?? Date.now() };
+              }
+              return null;
+            })
+            .filter(Boolean);
+
+          client!.send({
+            type: "sync_response",
+            sessionId: sessionId!,
+            payload: { messages },
+          });
+        } catch (err) {
+          console.error("[pi-web-sync] sync request failed:", err);
+        }
+      });
+
+      pi.ui.notify(`Web sync: ${getSessionUrl(sid, webappUrl)}`, "info");
+      return true;
     } catch (err) {
       console.error("[pi-web-sync] failed to connect:", err);
-      ctx.ui.notify("Web sync: relay connection failed", "error");
-      return;
+      pi.ui.notify("Web sync: relay connection failed", "error");
+      sessionId = null;
+      client = null;
+      return false;
     }
+  }
 
-    // Listen for messages from web app
-    client.onMessage(async (msg: RelayMessage) => {
-      if (msg.type === "user_message") {
-        const payload = msg.payload as { text: string };
-        pi.sendUserMessage(payload.text);
-      }
-    });
+  /** Disconnect from relay. */
+  function disconnectRelay(): void {
+    client?.disconnect();
+    client = null;
+    sessionId = null;
+    assistantBuffer = "";
+  }
 
-    ctx.ui.notify(`Web sync: ${getSessionUrl(sessionId)}`, "info");
-
-    // Handle sync requests from web app (full history)
-    // HAZARD: sessionManager access during events — verify this is safe in pi's event model
-    client.onSyncRequest(async () => {
-      try {
-        const entries = ctx.sessionManager.getBranch();
-        const messages = entries
-          .filter((e: Record<string, unknown>) => (e as { type: string }).type === "message")
-          .map((e: Record<string, unknown>) => {
-            const msg = (e as { message: Record<string, unknown> }).message;
-            if (msg.role === "user") {
-              return { role: "user" as const, text: extractText(msg.content), timestamp: msg.timestamp ?? Date.now() };
-            }
-            if (msg.role === "assistant") {
-              return { role: "assistant" as const, text: extractText(msg.content), timestamp: msg.timestamp ?? Date.now() };
-            }
-            return null;
-          })
-          .filter(Boolean);
-
-        client!.send({
-          type: "sync_response",
-          sessionId: sessionId!,
-          payload: { messages },
-        });
-      } catch (err) {
-        console.error("[pi-web-sync] sync request failed:", err);
-      }
-    });
-  });
-
-  // Forward user messages typed in pi to the web app.
-  // Uses the `input` event which has the raw text (simpler than parsing content blocks).
+  // Handle /web-sync commands
   pi.on("input", async (event, ctx) => {
-    // Don't echo messages that came from the web app itself
+    // Don't process messages from the web app itself
     if (event.source === "extension") return { action: "continue" };
 
+    const text = event.text;
+
+    // Check for /web-sync commands
+    if (text.startsWith("/web-sync ")) {
+      const parts = text.split(" ");
+      const command = parts[1];
+
+      if (command === "connect") {
+        if (client) {
+          pi.ui.notify("Web sync: already connected", "info");
+          return { action: "continue" };
+        }
+        // Optional args: [relay_url] [webapp_url]
+        if (parts[2]) relayUrl = parts[2];
+        if (parts[3]) webappUrl = parts[3];
+        await connectRelay(ctx);
+      } else if (command === "disconnect") {
+        if (!client) {
+          pi.ui.notify("Web sync: not connected", "info");
+        } else {
+          disconnectRelay();
+          pi.ui.notify("Web sync: disconnected", "info");
+        }
+      } else if (command === "status") {
+        if (client && sessionId) {
+          pi.ui.notify(`Web sync: connected — ${getSessionUrl(sessionId, webappUrl)}`, "info");
+        } else {
+          pi.ui.notify("Web sync: not connected", "info");
+        }
+      }
+
+      return { action: "continue" };
+    }
+
+    // Also handle bare /web-sync (no subcommand) as "connect"
+    if (text === "/web-sync") {
+      if (!client) await connectRelay(ctx);
+      else pi.ui.notify("Web sync: already connected", "info");
+      return { action: "continue" };
+    }
+
+    // Forward non-command user messages to web app (if connected)
     if (client) {
       client.send({
         type: "user_message",
         sessionId: sessionId!,
-        payload: { role: "user", text: event.text, timestamp: Date.now() },
+        payload: { role: "user", text, timestamp: Date.now() },
       });
-    } else {
-      // WebSocket not yet connected — buffer for later
-      pendingMessages.push({ text: event.text, timestamp: Date.now() });
     }
 
     return { action: "continue" };
@@ -156,6 +195,5 @@ export default function (pi: ExtensionAPI) {
     client = null;
     sessionId = null;
     assistantBuffer = "";
-    pendingMessages = [];
   });
 }
