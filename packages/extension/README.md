@@ -10,18 +10,35 @@ npm install pi-web-sync
 
 ## Configuration
 
-You must provide the URLs for a WebSocket relay and web app (see the [main repository](https://github.com/yinloo-ola/pi-web-sync) for self-hosting instructions).
+### Option 1: Config file (recommended)
 
-| Variable | Required | Description |
-|---|---|---|
-| `PI_WEB_SYNC_RELAY_URL` | Yes | WebSocket relay URL |
-| `PI_WEB_SYNC_WEBAPP_URL` | Yes | Web app base URL (for session URL display) |
+Create `~/.pi-web-sync.json` (global) or `.pi-web-sync.json` in your project root:
 
-The extension checks these on load and warns if they're missing. You can also set them at runtime:
+```json
+{
+  "relayUrl": "ws://localhost:8787",
+  "webappUrl": "http://localhost:5173"
+}
+```
+
+Set once, works for every pi session.
+
+### Option 2: Environment variables
 
 ```bash
-/web-sync connect wss://your-relay.example.com https://your-webapp.example.com
+export PI_WEB_SYNC_RELAY_URL=ws://localhost:8787
+export PI_WEB_SYNC_WEBAPP_URL=http://localhost:5173
 ```
+
+### Option 3: Interactive command
+
+In pi, use the `/web-sync` command:
+
+```
+/web-sync connect ws://localhost:8787 http://localhost:5173
+```
+
+You must provide your own relay and web app. See the [main repository](https://github.com/yinloo-ola/pi-web-sync) for self-hosting instructions.
 
 ## How it works
 

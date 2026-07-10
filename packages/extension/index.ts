@@ -1,16 +1,55 @@
+import { readFileSync, existsSync } from "fs";
+import { homedir } from "os";
+import { join } from "path";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { RelayClient } from "./relay-client";
 import type { RelayMessage } from "./types";
 
-const RELAY_URL = process.env.PI_WEB_SYNC_RELAY_URL;
-const WEBAPP_URL = process.env.PI_WEB_SYNC_WEBAPP_URL;
+interface WebSyncConfig {
+  relayUrl: string;
+  webappUrl: string;
+}
 
-if (!RELAY_URL) {
-  console.warn("[pi-web-sync] PI_WEB_SYNC_RELAY_URL not set — run /web-sync connect <relay-url> or set the env var");
+/** Load config from ~/.pi-web-sync.json or ./.pi-web-sync.json, falling back to env vars. */
+function loadConfig(): WebSyncConfig {
+  // Priority: project config > global config > env vars
+  const candidates = [
+    { path: join(process.cwd(), ".pi-web-sync.json"), label: "project" },
+    { path: join(homedir(), ".pi-web-sync.json"), label: "global" },
+  ];
+
+  for (const { path, label } of candidates) {
+    if (existsSync(path)) {
+      try {
+        const raw = readFileSync(path, "utf-8");
+        const config = JSON.parse(raw) as WebSyncConfig;
+        if (config.relayUrl && config.webappUrl) {
+          console.log(`[pi-web-sync] loaded config from ${label} file`);
+          return config;
+        }
+        console.warn(`[pi-web-sync] ${label} config file at ${path} is missing relayUrl or webappUrl`);
+      } catch (err) {
+        console.warn(`[pi-web-sync] failed to parse ${label} config at ${path}:`, err);
+      }
+    }
+  }
+
+  // Fall back to env vars
+  const relayUrl = process.env.PI_WEB_SYNC_RELAY_URL;
+  const webappUrl = process.env.PI_WEB_SYNC_WEBAPP_URL;
+
+  if (relayUrl && webappUrl) {
+    console.log("[pi-web-sync] loaded config from env vars");
+    return { relayUrl, webappUrl };
+  }
+
+  console.warn("[pi-web-sync] no config found — create ~/.pi-web-sync.json or set PI_WEB_SYNC_RELAY_URL / PI_WEB_SYNC_WEBAPP_URL");
+  return { relayUrl: "", webappUrl: "" };
 }
-if (!WEBAPP_URL) {
-  console.warn("[pi-web-sync] PI_WEB_SYNC_WEBAPP_URL not set — run /web-sync connect <relay-url> <webapp-url> or set the env var");
-}
+
+const config = loadConfig();
+const RELAY_URL = config.relayUrl;
+const WEBAPP_URL = config.webappUrl;
 
 /** Extract plain text from pi message content blocks. */
 function extractText(content: unknown): string {
@@ -116,6 +155,10 @@ export default function (pi: ExtensionAPI) {
         const parts = args ? args.split(" ") : [];
         if (parts[1]) relayUrl = parts[1];
         if (parts[2]) webappUrl = parts[2];
+        if (!relayUrl || !webappUrl) {
+          ctx.ui.notify("Web sync: set relay and webapp URLs via /web-sync connect <relay> <webapp>, env vars, or ~/.pi-web-sync.json", "error");
+          return;
+        }
         await connectRelay(ctx);
       } else if (args.startsWith("disconnect")) {
         if (!client) {

@@ -18,12 +18,39 @@ This project has three components: a pi extension, a WebSocket relay, and a web 
 npm install pi-web-sync
 ```
 
-Set the environment variables for your pi session (or pass them via `/web-sync connect`):
+Configure the extension (pick one):
+
+<details>
+<summary><b>📄 Config file</b> (recommended — set once, works for every session)</summary>
+
+Create <code>~/.pi-web-sync.json</code>:
+
+```json
+{
+  "relayUrl": "ws://localhost:8787",
+  "webappUrl": "http://localhost:5173"
+}
+```
+</details>
+
+<details>
+<summary><b>🔧 Environment variables</b></summary>
 
 ```bash
 export PI_WEB_SYNC_RELAY_URL=ws://localhost:8787
 export PI_WEB_SYNC_WEBAPP_URL=http://localhost:5173
 ```
+</details>
+
+<details>
+<summary><b>⌨️ Interactive command</b></summary>
+
+In pi, run:
+
+```
+/web-sync connect ws://localhost:8787 http://localhost:5173
+```
+</details>
 
 > **No default servers are provided.** You must deploy your own relay and web app, or run them locally. See below.
 
@@ -98,12 +125,23 @@ Set `VITE_RELAY_URL` to your deployed relay URL.
 
 ### Configure the extension
 
-| Variable | Required | Description |
-|---|---|---|
-| `PI_WEB_SYNC_RELAY_URL` | Yes | WebSocket relay URL |
-| `PI_WEB_SYNC_WEBAPP_URL` | Yes | Web app base URL (for session URL display) |
+**Config file** (recommended): create `~/.pi-web-sync.json` or `.pi-web-sync.json` in your project root.
 
-Set these in your pi session environment, or pass them directly via `/web-sync connect <relay-url> <webapp-url>`.
+```json
+{
+  "relayUrl": "ws://localhost:8787",
+  "webappUrl": "http://localhost:5173"
+}
+```
+
+**Environment variables:**
+
+| Variable | Description |
+|---|---|
+| `PI_WEB_SYNC_RELAY_URL` | WebSocket relay URL |
+| `PI_WEB_SYNC_WEBAPP_URL` | Web app base URL (for session URL display) |
+
+**Interactive:** `/web-sync connect <relay-url> <webapp-url>`
 
 ---
 
