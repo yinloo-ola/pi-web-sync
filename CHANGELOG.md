@@ -33,3 +33,8 @@
 - Refactored from simple Worker to Durable Objects for maintaining WebSocket state
 - Restructured README into two sections: end-user quick start and developer self-hosting guide
 - Archived planning docs to `docs/plans/completed/`
+- Extension now reads config from `~/.pi-web-sync.json` (global) or `.pi-web-sync.json` (project) before falling back to env vars
+- Removed hardcoded default relay/webapp URLs — users must self-host or provide URLs explicitly
+- Updated `.gitignore` to cover `.vite/`, `.wrangler/`, IDE and OS files
+- Added `README.md` and `repository` field to extension's npm package
+- Added `CHANGELOG.md`
