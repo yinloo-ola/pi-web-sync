@@ -35,6 +35,19 @@ wss.on("connection", (ws, request) => {
 
   const pair = sessions.get(sessionId) ?? { pi: null, web: null };
 
+  // Notify the existing peer BEFORE replacing the connection
+  const wasConnected = clientType === "pi" ? pair.pi !== null : pair.web !== null;
+  if (wasConnected) {
+    const existingPeer = clientType === "pi" ? pair.pi : pair.web;
+    if (existingPeer && existingPeer.readyState === ws.OPEN) {
+      existingPeer.send(JSON.stringify({
+        type: "peer_disconnected",
+        sessionId,
+        payload: { peer: clientType },
+      }));
+    }
+  }
+
   // Close existing connection of same type, store new one
   if (clientType === "pi") {
     pair.pi?.close();
@@ -46,6 +59,29 @@ wss.on("connection", (ws, request) => {
   sessions.set(sessionId, pair);
 
   console.log(`[relay] ${clientType} connected to session ${sessionId} (${sessions.size} active sessions)`);
+
+  // Notify the new client about the other peer's status
+  const otherPeer = clientType === "pi" ? pair.web : pair.pi;
+  if (otherPeer && otherPeer.readyState === ws.OPEN) {
+    ws.send(JSON.stringify({
+      type: "peer_connected",
+      sessionId,
+      payload: { peer: clientType === "pi" ? "web" : "pi" },
+    }));
+    // Also notify the existing peer that the new client joined
+    otherPeer.send(JSON.stringify({
+      type: "peer_connected",
+      sessionId,
+      payload: { peer: clientType },
+    }));
+  } else {
+    // No other peer — tell the new client there's none
+    ws.send(JSON.stringify({
+      type: "peer_disconnected",
+      sessionId,
+      payload: { peer: clientType === "pi" ? "web" : "pi" },
+    }));
+  }
 
   // Forward messages to the other client
   ws.on("message", (data: Buffer | string) => {

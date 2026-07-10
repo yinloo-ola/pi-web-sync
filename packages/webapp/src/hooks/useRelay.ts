@@ -63,13 +63,13 @@ export function useRelay(
         const msg: RelayMessage = JSON.parse(raw as string);
         console.log("[useRelay] received message:", msg.type);
 
-        // Handle peer_disconnected specially
-        if (msg.type === "peer_disconnected") {
+        // Handle peer status messages
+        if (msg.type === "peer_connected" || msg.type === "peer_disconnected") {
           const payload = msg.payload as { peer: string };
           if (payload.peer === "pi") {
-            setPiStatus("disconnected");
+            setPiStatus(msg.type === "peer_connected" ? "connected" : "disconnected");
           }
-          return; // Don't forward to app for peer_disconnected
+          return; // Don't forward to app for peer status messages
         }
 
         onMessageRef.current(msg);

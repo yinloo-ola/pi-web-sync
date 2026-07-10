@@ -52,6 +52,28 @@ export class SessionDO implements DurableObject {
       this.web = server;
     }
 
+    // Notify the new client about the other peer's status
+    const other = clientType === "pi" ? this.web : this.pi;
+    const sessionId = url.pathname.split("/").pop() ?? "";
+    if (other && other.readyState === WebSocket.READY_STATE_OPEN) {
+      server.send(JSON.stringify({
+        type: "peer_connected",
+        sessionId,
+        payload: { peer: clientType === "pi" ? "web" : "pi" },
+      }));
+      other.send(JSON.stringify({
+        type: "peer_connected",
+        sessionId,
+        payload: { peer: clientType },
+      }));
+    } else {
+      server.send(JSON.stringify({
+        type: "peer_disconnected",
+        sessionId,
+        payload: { peer: clientType === "pi" ? "web" : "pi" },
+      }));
+    }
+
     // Forward messages to the other peer
     server.addEventListener("message", (event: MessageEvent) => {
       const other = clientType === "pi" ? this.web : this.pi;
@@ -66,7 +88,7 @@ export class SessionDO implements DurableObject {
       if (other && other.readyState === WebSocket.READY_STATE_OPEN) {
         other.send(JSON.stringify({
           type: "peer_disconnected",
-          sessionId: url.pathname.split("/").pop() ?? "",
+          sessionId,
           payload: { peer: clientType },
         }));
       }
