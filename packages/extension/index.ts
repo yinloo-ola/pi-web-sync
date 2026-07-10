@@ -86,11 +86,11 @@ export default function (pi: ExtensionAPI) {
         }
       });
 
-      pi.ui.notify(`Web sync: ${getSessionUrl(sid, webappUrl)}`, "info");
+      ctx.ui.notify(`Web sync: ${getSessionUrl(sid, webappUrl)}`, "info");
       return true;
     } catch (err) {
       console.error("[pi-web-sync] failed to connect:", err);
-      pi.ui.notify("Web sync: relay connection failed", "error");
+      ctx.ui.notify("Web sync: relay connection failed", "error");
       sessionId = null;
       client = null;
       return false;
@@ -120,7 +120,7 @@ export default function (pi: ExtensionAPI) {
 
       if (command === "connect") {
         if (client) {
-          pi.ui.notify("Web sync: already connected", "info");
+          ctx.ui.notify("Web sync: already connected", "info");
           return { action: "continue" };
         }
         // Optional args: [relay_url] [webapp_url]
@@ -129,16 +129,16 @@ export default function (pi: ExtensionAPI) {
         await connectRelay(ctx);
       } else if (command === "disconnect") {
         if (!client) {
-          pi.ui.notify("Web sync: not connected", "info");
+          ctx.ui.notify("Web sync: not connected", "info");
         } else {
           disconnectRelay();
-          pi.ui.notify("Web sync: disconnected", "info");
+          ctx.ui.notify("Web sync: disconnected", "info");
         }
       } else if (command === "status") {
         if (client && sessionId) {
-          pi.ui.notify(`Web sync: connected — ${getSessionUrl(sessionId, webappUrl)}`, "info");
+          ctx.ui.notify(`Web sync: connected — ${getSessionUrl(sessionId, webappUrl)}`, "info");
         } else {
-          pi.ui.notify("Web sync: not connected", "info");
+          ctx.ui.notify("Web sync: not connected", "info");
         }
       }
 
@@ -148,7 +148,7 @@ export default function (pi: ExtensionAPI) {
     // Also handle bare "web-sync" (no subcommand) as "connect"
     if (text === "web-sync") {
       if (!client) await connectRelay(ctx);
-      else pi.ui.notify("Web sync: already connected", "info");
+      else ctx.ui.notify("Web sync: already connected", "info");
       return { action: "continue" };
     }
 
