@@ -1,5 +1,26 @@
 node_modules/
 dist/
+
+# Local environment
 .env
+.env.local
+
+# Build and cache
+.vite/
+.wrangler/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
 *.log
+
+# Lock files (not published as an app)
 package-lock.json
