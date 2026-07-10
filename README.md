@@ -14,8 +14,7 @@ Sync your [pi](https://github.com/earendil-works/pi-coding-agent) coding session
 This project has three components: a pi extension, a WebSocket relay, and a web app. You self-host the relay and web app, and configure the extension to point at them.
 
 ```bash
-# 1. Install the extension
-npm install pi-web-sync
+pi install pi-web-sync
 ```
 
 Configure the extension (pick one):
@@ -23,7 +22,14 @@ Configure the extension (pick one):
 <details>
 <summary><b>📄 Config file</b> (recommended — set once, works for every session)</summary>
 
-Create <code>~/.pi-web-sync.json</code>:
+Create a JSON file at one of these locations:
+
+| Location | Scope | Path |
+|---|---|---|
+| **Global** (all projects) | User-wide | <code>~/.pi-web-sync.json</code> |
+| **Project** (per-project) | Local override | <code>.pi-web-sync.json</code> |
+
+Required fields:
 
 ```json
 {
@@ -31,6 +37,11 @@ Create <code>~/.pi-web-sync.json</code>:
   "webappUrl": "http://localhost:5173"
 }
 ```
+
+| Field | Description |
+|---|---|
+| `relayUrl` | WebSocket relay URL (required) |
+| `webappUrl` | Web app base URL for session links (required) |
 </details>
 
 <details>
@@ -125,7 +136,18 @@ Set `VITE_RELAY_URL` to your deployed relay URL.
 
 ### Configure the extension
 
-**Config file** (recommended): create `~/.pi-web-sync.json` or `.pi-web-sync.json` in your project root.
+```bash
+pi install pi-web-sync
+```
+
+**Config file** (recommended): create a JSON file at one of these locations:
+
+| Location | Scope | Path |
+|---|---|---|
+| **Global** (all projects) | User-wide | `~/.pi-web-sync.json` |
+| **Project** (per-project) | Local override | `.pi-web-sync.json` |
+
+Required fields:
 
 ```json
 {
@@ -133,6 +155,11 @@ Set `VITE_RELAY_URL` to your deployed relay URL.
   "webappUrl": "http://localhost:5173"
 }
 ```
+
+| Field | Description |
+|---|---|
+| `relayUrl` | WebSocket relay URL (required) |
+| `webappUrl` | Web app base URL for session links (required) |
 
 **Environment variables:**
 

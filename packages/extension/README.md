@@ -5,14 +5,21 @@ Sync your [pi](https://github.com/earendil-works/pi-coding-agent) coding session
 ## Install
 
 ```bash
-npm install pi-web-sync
+pi install pi-web-sync
 ```
 
 ## Configuration
 
 ### Option 1: Config file (recommended)
 
-Create `~/.pi-web-sync.json` (global) or `.pi-web-sync.json` in your project root:
+Create a JSON file at one of these locations:
+
+| Location | Scope | Path |
+|---|---|---|
+| **Global** (all projects) | User-wide | `~/.pi-web-sync.json` |
+| **Project** (per-project) | Local override | `.pi-web-sync.json` |
+
+Required fields:
 
 ```json
 {
@@ -20,6 +27,11 @@ Create `~/.pi-web-sync.json` (global) or `.pi-web-sync.json` in your project roo
   "webappUrl": "http://localhost:5173"
 }
 ```
+
+| Field | Description |
+|---|---|
+| `relayUrl` | WebSocket relay URL (required) |
+| `webappUrl` | Web app base URL for session links (required) |
 
 Set once, works for every pi session.
 
