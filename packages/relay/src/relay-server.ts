@@ -48,11 +48,13 @@ wss.on("connection", (ws, request) => {
   console.log(`[relay] ${clientType} connected to session ${sessionId} (${sessions.size} active sessions)`);
 
   // Forward messages to the other client
-  ws.on("message", (data) => {
+  ws.on("message", (data: Buffer | string) => {
+    const text = data.toString();
     const other = clientType === "pi" ? pair.web : pair.pi;
     if (other && other.readyState === ws.OPEN) {
-      other.send(data);
-      console.log(`[relay] forwarded ${data.toString().length} bytes: ${clientType} → ${clientType === "pi" ? "web" : "pi"}`);
+      // Send as text frame (string) so browser receives string instead of Blob
+      other.send(text);
+      console.log(`[relay] forwarded ${text.length} bytes: ${clientType} → ${clientType === "pi" ? "web" : "pi"}`);
     } else {
       console.log(`[relay] no paired client for ${clientType} in session ${sessionId}`);
     }

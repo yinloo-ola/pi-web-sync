@@ -50,10 +50,12 @@ export function useRelay(
       console.error("[useRelay] error event", event);
       setState("error");
     });
-    ws.addEventListener("message", (event) => {
+    ws.addEventListener("message", async (event) => {
       try {
-        const msg: RelayMessage = JSON.parse(event.data as string);
-        console.log("[useRelay] received message:", msg.type, "payload:", JSON.stringify(msg.payload).slice(0, 100));
+        // event.data is string (text frame) or Blob (binary frame)
+        const raw = event.data instanceof Blob ? await event.data.text() : event.data;
+        const msg: RelayMessage = JSON.parse(raw as string);
+        console.log("[useRelay] received message:", msg.type);
         onMessageRef.current(msg);
       } catch (e) {
         console.error("[useRelay] failed to parse message:", event.data, e);
