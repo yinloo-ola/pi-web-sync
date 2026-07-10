@@ -5,15 +5,6 @@ import type { RelayMessage } from "./types";
 const RELAY_URL = process.env.PI_WEB_SYNC_RELAY_URL ?? "ws://localhost:8787";
 const WEBAPP_URL = process.env.PI_WEB_SYNC_WEBAPP_URL ?? "http://localhost:5173";
 
-/** Generate a random session ID (8 hex characters). */
-function generateSessionId(): string {
-  const bytes = new Uint8Array(4);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
 /** Extract plain text from pi message content blocks. */
 function extractText(content: unknown): string {
   if (Array.isArray(content)) {
@@ -41,8 +32,8 @@ export default function (pi: ExtensionAPI) {
   let webappUrl = WEBAPP_URL;
 
   /** Attempt to connect to the relay. Returns true on success. */
-  async function connectRelay(ctx: { ui: any; sessionManager: { getBranch: () => Array<Record<string, unknown>> } }): Promise<boolean> {
-    const sid = generateSessionId();
+  async function connectRelay(ctx: { ui: any; sessionManager: { getBranch: () => Array<Record<string, unknown>>; getSessionId: () => string } }): Promise<boolean> {
+    const sid = ctx.sessionManager.getSessionId();
     sessionId = sid;
 
     try {
