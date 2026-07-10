@@ -1,0 +1,9 @@
+{
+  "name": "pi-web-sync-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/extension",
+    "packages/relay",
+    "packages/webapp"
+  ]
+}

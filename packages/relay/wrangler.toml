@@ -1,0 +1,19 @@
+name = "pi-web-sync-relay"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# Durable Objects for WebSocket state sharing across Workers
+[[durable_objects.bindings]]
+name = "SESSION"
+class_name = "SessionDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SessionDO"]
+
+# Local dev: use relay-server.ts (npm run dev)
+# Cloudflare Workers cannot share WebSocket objects across fetch requests
+# without Durable Objects.
+
+[observability]
+enabled = true
