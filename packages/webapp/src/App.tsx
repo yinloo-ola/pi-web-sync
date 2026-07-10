@@ -33,8 +33,10 @@ export default function App() {
 
   const handleMessage = useCallback(
     (msg: RelayMessage) => {
+      console.log("[App] handleMessage:", msg.type);
       if (msg.type === "user_message") {
         const payload = msg.payload as { text: string; timestamp: number };
+        console.log("[App] adding user message:", payload.text);
         addMessage({
           id: `${msg.sessionId}-${payload.timestamp}`,
           role: "user",
@@ -45,6 +47,7 @@ export default function App() {
         // Deltas are accumulated into done messages — skip for now
       } else if (msg.type === "assistant_done") {
         const payload = msg.payload as { text: string; timestamp: number };
+        console.log("[App] adding assistant message:", payload.text.slice(0, 50));
         addMessage({
           id: `${msg.sessionId}-${payload.timestamp}`,
           role: "assistant",

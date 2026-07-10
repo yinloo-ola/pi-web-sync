@@ -21,15 +21,18 @@ export function useRelay(
 
   const connect = useCallback(() => {
     if (wsRef.current) {
+      console.log("[useRelay] closing existing WebSocket");
       wsRef.current.close();
     }
 
     setState("connecting");
     const wsUrl = `${relayUrl}/session/${sessionId}?client=web`;
+    console.log("[useRelay] connecting to", wsUrl);
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.addEventListener("open", () => {
+      console.log("[useRelay] connected");
       setState("connected");
       // Request full history from pi on connect
       ws.send(JSON.stringify({
@@ -37,15 +40,23 @@ export function useRelay(
         sessionId,
         payload: {},
       }));
+      console.log("[useRelay] sent sync_request");
     });
-    ws.addEventListener("close", () => setState("disconnected"));
-    ws.addEventListener("error", () => setState("error"));
+    ws.addEventListener("close", (event) => {
+      console.log("[useRelay] closed: code=", event.code, "reason=", event.reason);
+      setState("disconnected");
+    });
+    ws.addEventListener("error", (event) => {
+      console.error("[useRelay] error event", event);
+      setState("error");
+    });
     ws.addEventListener("message", (event) => {
       try {
         const msg: RelayMessage = JSON.parse(event.data as string);
+        console.log("[useRelay] received message:", msg.type, "payload:", JSON.stringify(msg.payload).slice(0, 100));
         onMessageRef.current(msg);
-      } catch {
-        // Ignore malformed messages
+      } catch (e) {
+        console.error("[useRelay] failed to parse message:", event.data, e);
       }
     });
   }, [relayUrl, sessionId]);
