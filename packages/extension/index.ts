@@ -33,6 +33,7 @@ function getSessionUrl(sessionId: string, webappUrl: string): string {
 
 /** Pi extension that syncs the current session with a web app via WebSocket relay. */
 export default function (pi: ExtensionAPI) {
+  console.log("[pi-web-sync] extension loaded");
   let client: RelayClient | null = null;
   let sessionId: string | null = null;
   let assistantBuffer = "";
@@ -40,7 +41,7 @@ export default function (pi: ExtensionAPI) {
   let webappUrl = WEBAPP_URL;
 
   /** Attempt to connect to the relay. Returns true on success. */
-  async function connectRelay(ctx: { ui: ExtensionAPI["ui"] }): Promise<boolean> {
+  async function connectRelay(ctx: { ui: any; sessionManager: { getBranch: () => Array<Record<string, unknown>> } }): Promise<boolean> {
     const sid = generateSessionId();
     sessionId = sid;
 
@@ -104,15 +105,16 @@ export default function (pi: ExtensionAPI) {
     assistantBuffer = "";
   }
 
-  // Handle /web-sync commands
+  // Handle web-sync commands (no leading slash — pi may intercept /-prefixed commands)
   pi.on("input", async (event, ctx) => {
     // Don't process messages from the web app itself
     if (event.source === "extension") return { action: "continue" };
 
     const text = event.text;
+    console.log("[pi-web-sync] input event fired:", text);
 
-    // Check for /web-sync commands
-    if (text.startsWith("/web-sync ")) {
+    // Check for web-sync commands
+    if (text.startsWith("web-sync ")) {
       const parts = text.split(" ");
       const command = parts[1];
 
@@ -143,8 +145,8 @@ export default function (pi: ExtensionAPI) {
       return { action: "continue" };
     }
 
-    // Also handle bare /web-sync (no subcommand) as "connect"
-    if (text === "/web-sync") {
+    // Also handle bare "web-sync" (no subcommand) as "connect"
+    if (text === "web-sync") {
       if (!client) await connectRelay(ctx);
       else pi.ui.notify("Web sync: already connected", "info");
       return { action: "continue" };
