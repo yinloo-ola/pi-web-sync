@@ -105,28 +105,30 @@ export default function (pi: ExtensionAPI) {
     assistantBuffer = "";
   }
 
-  // Handle web-sync commands (no leading slash — pi may intercept /-prefixed commands)
+  // Handle /web-sync commands
+  // NOTE: unknown /-prefixed messages still reach the input handler — pi only intercepts
+  // known built-in commands (/web, /help, etc.). Unknown ones pass through as user input.
   pi.on("input", async (event, ctx) => {
     // Don't process messages from the web app itself
     if (event.source === "extension") return { action: "continue" };
 
     const text = event.text;
-    console.log("[pi-web-sync] input event fired:", text);
 
-    // Check for web-sync commands
-    if (text.startsWith("web-sync ")) {
+    // Check for /web-sync commands
+    if (text.startsWith("/web-sync ") || text === "/web-sync") {
+      // Stop the message from reaching the LLM
       const parts = text.split(" ");
       const command = parts[1];
 
-      if (command === "connect") {
+      if (text === "/web-sync" || command === "connect") {
         if (client) {
           ctx.ui.notify("Web sync: already connected", "info");
-          return { action: "continue" };
+        } else {
+          // Optional args: [relay_url] [webapp_url]
+          if (parts[2]) relayUrl = parts[2];
+          if (parts[3]) webappUrl = parts[3];
+          await connectRelay(ctx);
         }
-        // Optional args: [relay_url] [webapp_url]
-        if (parts[2]) relayUrl = parts[2];
-        if (parts[3]) webappUrl = parts[3];
-        await connectRelay(ctx);
       } else if (command === "disconnect") {
         if (!client) {
           ctx.ui.notify("Web sync: not connected", "info");
@@ -142,14 +144,7 @@ export default function (pi: ExtensionAPI) {
         }
       }
 
-      return { action: "continue" };
-    }
-
-    // Also handle bare "web-sync" (no subcommand) as "connect"
-    if (text === "web-sync") {
-      if (!client) await connectRelay(ctx);
-      else ctx.ui.notify("Web sync: already connected", "info");
-      return { action: "continue" };
+      return { action: "stop" };
     }
 
     // Forward non-command user messages to web app (if connected)
