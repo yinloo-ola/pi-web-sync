@@ -2,8 +2,15 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-c
 import { RelayClient } from "./relay-client";
 import type { RelayMessage } from "./types";
 
-const RELAY_URL = process.env.PI_WEB_SYNC_RELAY_URL ?? "wss://pi-web-sync-relay.ola-app.workers.dev";
-const WEBAPP_URL = process.env.PI_WEB_SYNC_WEBAPP_URL ?? "https://pi-web-sync-webapp.pages.dev";
+const RELAY_URL = process.env.PI_WEB_SYNC_RELAY_URL;
+const WEBAPP_URL = process.env.PI_WEB_SYNC_WEBAPP_URL;
+
+if (!RELAY_URL) {
+  console.warn("[pi-web-sync] PI_WEB_SYNC_RELAY_URL not set — run /web-sync connect <relay-url> or set the env var");
+}
+if (!WEBAPP_URL) {
+  console.warn("[pi-web-sync] PI_WEB_SYNC_WEBAPP_URL not set — run /web-sync connect <relay-url> <webapp-url> or set the env var");
+}
 
 /** Extract plain text from pi message content blocks. */
 function extractText(content: unknown): string {

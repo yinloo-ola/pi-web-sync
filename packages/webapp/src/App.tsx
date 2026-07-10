@@ -4,7 +4,11 @@ import { useRelay } from "./hooks/useRelay";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import type { ChatMessage, RelayMessage } from "./types";
 
-const DEFAULT_RELAY_URL = import.meta.env.VITE_RELAY_URL ?? "wss://pi-web-sync-relay.example.com";
+const RELAY_URL = import.meta.env.VITE_RELAY_URL;
+
+if (!RELAY_URL) {
+  console.warn("[pi-web-sync] VITE_RELAY_URL not set — web app will not connect to relay");
+}
 
 /** Extract session ID from URL path: /session/<id>. */
 function getSessionId(): string {
@@ -56,7 +60,7 @@ export default function App() {
     [addMessage],
   );
 
-  const { state, piStatus, send } = useRelay(sessionId, DEFAULT_RELAY_URL, handleMessage);
+  const { state, piStatus, send } = useRelay(sessionId, RELAY_URL, handleMessage);
 
   const handleSend = useCallback(
     (text: string) => {
