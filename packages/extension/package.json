@@ -2,10 +2,12 @@
   "name": "pi-web-sync",
   "version": "0.1.0",
   "description": "Sync pi sessions with a web app via WebSocket relay",
+  "repository": "yinloo-ola/pi-web-sync",
   "files": [
     "index.ts",
     "relay-client.ts",
-    "types.ts"
+    "types.ts",
+    "README.md"
   ],
   "pi": {
     "extensions": [
