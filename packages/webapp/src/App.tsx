@@ -4,7 +4,7 @@ import { useRelay } from "./hooks/useRelay";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import type { ChatMessage, RelayMessage } from "./types";
 
-const DEFAULT_RELAY_URL = "wss://pi-web-sync-relay.example.com";
+const DEFAULT_RELAY_URL = import.meta.env.VITE_RELAY_URL ?? "wss://pi-web-sync-relay.example.com";
 
 /** Extract session ID from URL path: /session/<id>. */
 function getSessionId(): string {

@@ -4,13 +4,18 @@
   "private": true,
   "description": "WebSocket relay for pi-web-sync",
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "tsx src/relay-server.ts",
     "deploy": "wrangler deploy"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260710.1",
     "@types/node": "^26.1.1",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.23.0",
     "typescript": "^5.0.0",
     "wrangler": "^3.0.0"
+  },
+  "dependencies": {
+    "ws": "^8.21.0"
   }
 }

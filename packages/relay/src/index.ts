@@ -1,3 +1,16 @@
+/// <reference types="@cloudflare/workers-types" />
+
+/**
+ * Cloudflare Worker WebSocket relay (PRODUCTION).
+ *
+ * NOTE: This requires Durable Objects for production deployment.
+ * Cloudflare Workers cannot share WebSocket objects across fetch requests
+ * without Durable Objects ("Cannot perform I/O on behalf of a different request").
+ *
+ * For local development, use relay-server.ts instead:
+ *   cd packages/relay && npm run dev
+ */
+
 interface Env {
   // Cloudflare Worker env bindings (if any)
 }
