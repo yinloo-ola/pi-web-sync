@@ -2,6 +2,7 @@ import { readFileSync, existsSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import QRCode from "qrcode";
 import { RelayClient } from "./relay-client";
 import type { RelayMessage } from "./types";
 
@@ -18,18 +19,15 @@ function loadConfig(): WebSyncConfig {
     { path: join(homedir(), ".pi-web-sync.json"), label: "global" },
   ];
 
-  for (const { path, label } of candidates) {
+  for (const { path } of candidates) {
     if (existsSync(path)) {
       try {
         const raw = readFileSync(path, "utf-8");
         const config = JSON.parse(raw) as WebSyncConfig;
         if (config.relayUrl && config.webappUrl) {
-          console.log(`[pi-web-sync] loaded config from ${label} file`);
           return config;
         }
-        console.warn(`[pi-web-sync] ${label} config file at ${path} is missing relayUrl or webappUrl`);
-      } catch (err) {
-        console.warn(`[pi-web-sync] failed to parse ${label} config at ${path}:`, err);
+      } catch {
       }
     }
   }
@@ -39,11 +37,9 @@ function loadConfig(): WebSyncConfig {
   const webappUrl = process.env.PI_WEB_SYNC_WEBAPP_URL;
 
   if (relayUrl && webappUrl) {
-    console.log("[pi-web-sync] loaded config from env vars");
     return { relayUrl, webappUrl };
   }
 
-  console.warn("[pi-web-sync] no config found — create ~/.pi-web-sync.json or set PI_WEB_SYNC_RELAY_URL / PI_WEB_SYNC_WEBAPP_URL");
   return { relayUrl: "", webappUrl: "" };
 }
 
@@ -70,7 +66,6 @@ function getSessionUrl(sessionId: string, webappUrl: string): string {
 
 /** Pi extension that syncs the current session with a web app via WebSocket relay. */
 export default function (pi: ExtensionAPI) {
-  console.log("[pi-web-sync] extension loaded");
   let client: RelayClient | null = null;
   let sessionId: string | null = null;
   let assistantBuffer = "";
@@ -85,7 +80,8 @@ export default function (pi: ExtensionAPI) {
     try {
       client = new RelayClient(relayUrl, sessionId);
       await client.connect();
-      console.log("[pi-web-sync] connected to relay");
+
+      const sessionUrl = getSessionUrl(sid, webappUrl);
 
       // Listen for messages from web app
       client.onMessage(async (msg: RelayMessage) => {
@@ -118,16 +114,29 @@ export default function (pi: ExtensionAPI) {
             sessionId: sessionId!,
             payload: { messages },
           });
-        } catch (err) {
-          console.error("[pi-web-sync] sync request failed:", err);
+        } catch {
+          // Sync request non-critical
         }
       });
 
-      ctx.ui.notify(`Web sync: ${getSessionUrl(sid, webappUrl)}`, "info");
+      // Show QR code for the session URL
+      try {
+        const qrString = await QRCode.toString(sessionUrl, { type: "terminal", small: true });
+        ctx.ui.setWidget("pi-web-sync", [
+          "📱 Scan to open web sync:",
+          qrString,
+          sessionUrl,
+        ]);
+      } catch {
+        ctx.ui.notify(`Web sync: ${sessionUrl}`, "info");
+      }
+
+      // Show connection status in footer
+      ctx.ui.setStatus("pi-web-sync", sessionUrl);
       return true;
-    } catch (err) {
-      console.error("[pi-web-sync] failed to connect:", err);
+    } catch {
       ctx.ui.notify("Web sync: relay connection failed", "error");
+      ctx.ui.setStatus("pi-web-sync", "");
       sessionId = null;
       client = null;
       return false;
@@ -135,11 +144,13 @@ export default function (pi: ExtensionAPI) {
   }
 
   /** Disconnect from relay. */
-  function disconnectRelay(): void {
+  function disconnectRelay(ctx?: { ui?: { setWidget?: (key: string, lines: string[]) => void; setStatus?: (key: string, text: string) => void } }): void {
     client?.disconnect();
     client = null;
     sessionId = null;
     assistantBuffer = "";
+    ctx?.ui?.setWidget?.("pi-web-sync", []);
+    ctx?.ui?.setStatus?.("pi-web-sync", "");
   }
 
   // Register /web-sync command (gets auto-complete in pi)
@@ -164,7 +175,7 @@ export default function (pi: ExtensionAPI) {
         if (!client) {
           ctx.ui.notify("Web sync: not connected", "info");
         } else {
-          disconnectRelay();
+          disconnectRelay(ctx);
           ctx.ui.notify("Web sync: disconnected", "info");
         }
       } else if (args.startsWith("status")) {
@@ -220,10 +231,11 @@ export default function (pi: ExtensionAPI) {
   });
 
   // Cleanup on shutdown
-  pi.on("session_shutdown", async () => {
+  pi.on("session_shutdown", async (_event, ctx) => {
     client?.disconnect();
     client = null;
     sessionId = null;
     assistantBuffer = "";
+    ctx?.ui?.setStatus?.("pi-web-sync", "");
   });
 }
