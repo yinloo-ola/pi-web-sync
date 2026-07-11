@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { RelayClient, type ConnectionState } from "./relay-client";
 import type { RelayMessage } from "./types";
 
+const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
 /**
  * The underlying WebSocket partysocket wraps. partysocket reads the constructor
  * from `options.WebSocket`, so we inject this mock there (via RelayClientOptions)
@@ -156,6 +158,79 @@ describe("RelayClient", () => {
       ws.readyState = 3; // CLOSED
       ws.dispatch("close", { code: 1006 });
       expect(statuses).toContainEqual(["reconnecting", 1]);
+
+      client.disconnect();
+    });
+  });
+
+  describe("heartbeat", () => {
+    it("sends a ping on interval and clears the timeout on receiving a pong", async () => {
+      const client = new RelayClient("wss://relay.test", "abc", {
+        WebSocket: MockWebSocket as unknown as typeof WebSocket,
+        heartbeat: { pingIntervalMs: 100, pongTimeoutMs: 50 },
+      });
+      const onMsg = vi.fn();
+      const statuses: Array<[ConnectionState, number]> = [];
+      client.onMessage(onMsg);
+      client.onStatus((s, a) => statuses.push([s, a]));
+
+      const p = client.connect();
+      await flushConnect();
+      const ws = capturedMock!;
+      ws.readyState = 1;
+      ws.dispatch("open", { type: "open" });
+      await p;
+      expect(statuses).toContainEqual(["connected", 0]);
+
+      statuses.length = 0;
+
+      // Wait for the first ping (100ms + margin).
+      await delay(130);
+      expect(ws.send).toHaveBeenCalledWith(
+        expect.stringContaining('"type":"ping"'),
+      );
+
+      // Send pong before the 50ms timeout expires.
+      ws.dispatch("message", {
+        type: "message",
+        data: JSON.stringify({ type: "pong", sessionId: "abc", payload: {} }),
+      });
+
+      // Wait past the pong timeout window — should NOT reconnect.
+      await delay(80);
+      expect(statuses.filter((s) => s[0] === "reconnecting")).toHaveLength(0);
+
+      // Pong should NOT be forwarded to the message handler.
+      expect(onMsg).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: "pong" }),
+      );
+
+      client.disconnect();
+    });
+
+    it("reconnects on missed pong (zombie detection)", async () => {
+      const client = new RelayClient("wss://relay.test", "abc", {
+        WebSocket: MockWebSocket as unknown as typeof WebSocket,
+        heartbeat: { pingIntervalMs: 50, pongTimeoutMs: 30 },
+      });
+      const statuses: Array<[ConnectionState, number]> = [];
+      client.onStatus((s, a) => statuses.push([s, a]));
+
+      const p = client.connect();
+      await flushConnect();
+      const ws = capturedMock!;
+      ws.readyState = 1;
+      ws.dispatch("open", { type: "open" });
+      await p;
+      expect(statuses).toContainEqual(["connected", 0]);
+
+      statuses.length = 0;
+
+      // Wait for ping (50ms) + pong timeout (30ms) + margin.
+      await delay(120);
+
+      // A missed pong should trigger a reconnect.
+      expect(statuses).toContainEqual(["reconnecting", 0]);
 
       client.disconnect();
     });

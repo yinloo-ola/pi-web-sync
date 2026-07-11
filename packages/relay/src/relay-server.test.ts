@@ -38,6 +38,85 @@ describe("close-codes", () => {
   });
 });
 
+describe("heartbeat", () => {
+  let relay: ReturnType<typeof createRelay>;
+  let port: number;
+  const sockets: WsClient[] = [];
+
+  function dial(path: string): Promise<WsClient> {
+    return new Promise((resolve, reject) => {
+      const ws = new WsClient(`ws://localhost:${port}${path}`);
+      sockets.push(ws);
+      ws.once("open", () => resolve(ws));
+      ws.once("error", reject);
+    });
+  }
+
+  beforeEach(async () => {
+    relay = createRelay(0);
+    port = await waitForPort(relay.wss);
+  });
+
+  afterEach(async () => {
+    for (const s of sockets) {
+      try {
+        s.close();
+      } catch {
+        /* ignore */
+      }
+    }
+    sockets.length = 0;
+    await new Promise<void>((r) => relay.wss.close(() => r()));
+  });
+
+  it("relay answers ping with pong and does not forward ping or pong to the peer", async () => {
+    const web = await dial("/session/s1?client=web");
+    const pi = await dial("/session/s1?client=pi");
+
+    const webMsg: string[] = [];
+    const piMsg: string[] = [];
+    web.on("message", (data) => webMsg.push(data.toString()));
+    pi.on("message", (data) => piMsg.push(data.toString()));
+
+    // Let any buffered handshake messages (peer_connected) drain.
+    await delay(20);
+    // Discard handshake messages for the heartbeat assertions below.
+    webMsg.length = 0;
+    piMsg.length = 0;
+
+    const ping = JSON.stringify({ type: "ping", sessionId: "s1", payload: {} });
+
+    // Web sends ping → should receive a pong; pi receives nothing.
+    web.send(ping);
+    await delay(100);
+
+    const webMsgJson = webMsg.map((m) => JSON.parse(m));
+    expect(webMsgJson).toEqual([
+      { type: "pong", sessionId: "s1", payload: {} },
+    ]);
+    const pong = webMsgJson[0];
+    expect(pong.type).toBe("pong");
+    expect(pong.sessionId).toBe("s1");
+
+    // ping was NOT forwarded to the peer.
+    expect(piMsg.length).toBe(0);
+
+    // Reverse direction: pi pings → receives pong; web receives nothing.
+    webMsg.length = 0;
+    piMsg.length = 0;
+
+    pi.send(ping);
+    await delay(100);
+
+    expect(piMsg.length).toBe(1);
+    const pong2 = JSON.parse(piMsg[0]);
+    expect(pong2.type).toBe("pong");
+    expect(pong2.sessionId).toBe("s1");
+
+    expect(webMsg.length).toBe(0);
+  });
+});
+
 describe("relay single-browser-tab policy", () => {
   let relay: ReturnType<typeof createRelay>;
   let port: number;
@@ -52,7 +131,10 @@ describe("relay single-browser-tab policy", () => {
     });
   }
 
-  function dialExpectingClose(path: string): Promise<{ code: number; reason: string }> {
+  function dialExpectingClose(path: string): Promise<{
+    code: number;
+    reason: string;
+  }> {
     return new Promise((resolve) => {
       const ws = new WsClient(`ws://localhost:${port}${path}`);
       sockets.push(ws);
@@ -83,7 +165,9 @@ describe("relay single-browser-tab policy", () => {
     const first = await dial("/session/s1?client=web");
     expect(first.readyState).toBe(WsClient.OPEN);
 
-    const { code, reason } = await dialExpectingClose("/session/s1?client=web");
+    const { code, reason } = await dialExpectingClose(
+      "/session/s1?client=web",
+    );
     expect(code).toBe(CLOSE_DUPLICATE_WEB);
     expect(reason).toContain("already");
 

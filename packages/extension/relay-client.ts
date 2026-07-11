@@ -12,6 +12,8 @@ export type ConnectionState = "connected" | "reconnecting" | "failed";
  */
 export const MAX_RETRIES = 10;
 const MIN_UPTIME_MS = 5000;
+const PING_INTERVAL_MS = 30_000;
+const PONG_TIMEOUT_MS = 10_000;
 
 const RECONNECT_OPTIONS: ReconnectOptions = {
   maxRetries: MAX_RETRIES,
@@ -27,6 +29,13 @@ const RECONNECT_OPTIONS: ReconnectOptions = {
 export interface RelayClientOptions {
   /** WebSocket constructor for partysocket to wrap. Defaults to the `ws` package. */
   WebSocket?: ReconnectOptions["WebSocket"];
+  /** App-level heartbeat configuration (ticket 0006). Test overrides use short intervals. */
+  heartbeat?: {
+    /** Milliseconds between pings (default 30_000). */
+    pingIntervalMs?: number;
+    /** Milliseconds to wait for a pong before reconnecting (default 10_000). */
+    pongTimeoutMs?: number;
+  };
 }
 
 /**
@@ -53,13 +62,16 @@ export class RelayClient {
   // boundary.
   private closeCount = 0;
   private stableTimer: ReturnType<typeof setTimeout> | null = null;
+  private pingInterval: ReturnType<typeof setInterval> | null = null;
+  private pongTimeout: ReturnType<typeof setTimeout> | null = null;
   private intentionalClose = false;
   private opened = false;
+  private readonly options: RelayClientOptions;
 
   constructor(url: string, sessionId: string, options: RelayClientOptions = {}) {
     this.url = url;
     this.sessionId = sessionId;
-    this.options = { ...RECONNECT_OPTIONS, WebSocket: options.WebSocket ?? WS };
+    this.options = { ...RECONNECT_OPTIONS, ...options, WebSocket: options.WebSocket ?? WS };
   }
 
   /** Connect to the relay. Resolves on first open; rejects on first error. */
@@ -78,6 +90,14 @@ export class RelayClient {
     ws.addEventListener("message", (event) => {
       try {
         const msg: RelayMessage = JSON.parse(event.data as string);
+        if (msg.type === "pong") {
+          // Heartbeat response — clear the pending pong timeout. Not forwarded.
+          if (this.pongTimeout) {
+            clearTimeout(this.pongTimeout);
+            this.pongTimeout = null;
+          }
+          return;
+        }
         if (msg.type === "sync_request") {
           this.syncRequestHandler?.();
         } else if (msg.type !== "peer_disconnected") {
@@ -98,10 +118,12 @@ export class RelayClient {
       this.stableTimer = setTimeout(() => {
         this.closeCount = 0;
       }, MIN_UPTIME_MS);
+      this.startHeartbeat(ws);
     });
 
     ws.addEventListener("close", () => {
       this.clearStableTimer();
+      this.stopHeartbeat();
       // Before the first open, closes belong to the initial-connect handshake
       // (handled by the promise below); ignore them here.
       if (!this.opened) return;
@@ -141,6 +163,7 @@ export class RelayClient {
   disconnect(): void {
     this.intentionalClose = true;
     this.clearStableTimer();
+    this.stopHeartbeat();
     this.ws?.close();
     this.ws = null;
   }
@@ -150,6 +173,7 @@ export class RelayClient {
     const ws = this.ws;
     if (!ws) return;
     this.closeCount = 0;
+    this.stopHeartbeat();
     this.notify("reconnecting", 0);
     // ws.reconnect() dispatches a synthetic close synchronously; ignore it so it
     // isn't mistaken for an accidental drop (which would bump the counter).
@@ -196,6 +220,30 @@ export class RelayClient {
     if (this.stableTimer) {
       clearTimeout(this.stableTimer);
       this.stableTimer = null;
+    }
+  }
+
+  /** Start the app-level ping/pong heartbeat (called on each open). */
+  private startHeartbeat(ws: ReconnectingWebSocket): void {
+    const pingInterval = this.options.heartbeat?.pingIntervalMs ?? PING_INTERVAL_MS;
+    const pongTimeout = this.options.heartbeat?.pongTimeoutMs ?? PONG_TIMEOUT_MS;
+    this.stopHeartbeat();
+    this.pingInterval = setInterval(() => {
+      ws.send(JSON.stringify({ type: "ping", sessionId: this.sessionId, payload: {} }));
+      // No pong within the window means the connection is a zombie; force
+      // partysocket to re-establish (surfacing reconnecting/failed via onStatus).
+      this.pongTimeout = setTimeout(() => this.reconnect(), pongTimeout);
+    }, pingInterval);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
+    }
+    if (this.pongTimeout) {
+      clearTimeout(this.pongTimeout);
+      this.pongTimeout = null;
     }
   }
 }

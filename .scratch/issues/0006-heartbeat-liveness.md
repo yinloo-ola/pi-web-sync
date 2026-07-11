@@ -4,8 +4,72 @@ title: "Heartbeat / liveness: detect zombie connections"
 type: task
 parent: 0001
 blocked_by: [0002, 0003]
-assigned: null
-status: open
+assigned: tan.yinloo
+status: closed
+
+## Resolution
+
+### Design decision: relay responds to ping directly (no peer forwarding)
+
+The *other* option (relay forwards ping/pong between peers) would cause a
+false zombie alarm when a client has no peer (e.g. web app open but pi not
+connected) — the client pings, no peer exists to pong, so every 30s the
+client would reconnect-loop forever.  Therefore the relay answers each
+client's `ping` with an immediate `pong` **directly**, testing each leg of
+the connection independently of peer presence.
+
+### What changed
+
+**Types** (`extension/types.ts`, `webapp/src/types.ts`):
+  - Added `"ping" | "pong"` to `MessageType`.
+
+**Relays** (`relay-server.ts`, `index.ts`):
+  - On receiving a `ping` from a client, the relay sends a `pong` back to
+    THAT client and does NOT forward the message to the peer.
+  - `pong` messages received by the relay are silently dropped (defensive;
+    clients never send pong).
+
+**Extension client** (`relay-client.ts`):
+  - Every 30s sends `{ type: "ping", sessionId, payload: {} }`.
+  - Sets a 10s pong timeout; on expiry calls `reconnect()` which forces
+    partysocket to re-establish (surfacing reconnecting/failed via onStatus).
+  - A `pong` in the message stream clears the pending timeout (not forwarded
+    to the message handler).
+  - Heartbeat intervals are configurable via `RelayClientOptions.heartbeat`
+    (the constructor option), enabling short intervals in tests.
+  - Timers are cleaned up on close, disconnect, reconnect, and unmount.
+
+**Web app** (`useRelay.ts`):
+  - Identical heartbeat logic via the same 30s ping / 10s pong timeout.
+  - The pong-timeout callback uses a `reconnectRef` to call the `reconnect`
+    useCallback without creating a circular dependency.
+  - Timers cleaned up on close, reconnect, and effect teardown.
+
+### Hibernation fog resolved
+
+The current DO (`index.ts`) uses the **non-hibernating** WebSocket API
+(`server.accept()`).  Hibernation is therefore not in play today — the DO
+stays alive while connections are open regardless of heartbeat.
+
+If the DO is later migrated to the hibernating API
+(`state.acceptWebSocket(ws)` with `webSocketMessage`/`webSocketClose`
+handlers), the 30s app-level ping would wake it every 30s, defeating
+hibernation savings.  Cloudflare provides
+`ctx.state.setWebSocketAutoResponse()` to handle **protocol-level** pings
+without waking the DO — but the browser can't send protocol pings, so the
+browser leg would still need app-level ping/pong regardless.  The net: no
+follow-up ticket needed; just a documented trade-off for the hibernation
+path.
+
+### Tests
+
+| Package | Tests |
+|---------|-------|
+| `relay` | 1 new heartbeat test: relay answers `ping` with `pong` and does not forward it to peer (both directions) |
+| `extension` | 2 new heartbeat tests: (a) ping send + pong clears timeout; (b) missed-pong triggers reconnect |
+| `webapp` | 2 new heartbeat tests: (a) missed-pong → reconnect (fake timers); (b) pong received → no reconnect (fake timers) |
+
+All 19 tests pass (7 relay + 8 extension + 4 webapp), zero regressions.
 ---
 
 ## Question

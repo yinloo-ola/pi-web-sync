@@ -22,6 +22,9 @@ export type PiStatus = "connected" | "disconnected" | "unknown";
  */
 const MAX_RETRIES = 10;
 const MIN_UPTIME_MS = 5000;
+/** App-level heartbeat: ping the relay every 30s, expect a pong within 10s. */
+const PING_INTERVAL_MS = 30_000;
+const PONG_TIMEOUT_MS = 10_000;
 
 /**
  * Relay close code for "another browser tab already holds this session"
@@ -77,8 +80,23 @@ export function useRelay(
   // open for minUptime. Without this, a half-open socket that opens briefly
   // then drops would reset the counter on every open and never reach "failed".
   const stableTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pongTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Always-current reference to `reconnect`, so the heartbeat timer can call it. */
+  const reconnectRef = useRef<() => void>(() => {});
   const intentionalCloseRef = useRef(false);
   const aliveRef = useRef(true);
+
+  const stopHeartbeat = useCallback(() => {
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = null;
+    }
+    if (pongTimeoutRef.current) {
+      clearTimeout(pongTimeoutRef.current);
+      pongTimeoutRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     aliveRef.current = true;
@@ -97,6 +115,21 @@ export function useRelay(
       }
     };
 
+    const startHeartbeat = () => {
+      stopHeartbeat();
+      pingIntervalRef.current = setInterval(() => {
+        wsRef.current?.send(
+          JSON.stringify({ type: "ping", sessionId, payload: {} }),
+        );
+        // No pong within the window means the connection is a zombie; force a
+        // reconnect (partysocket re-establishes, surfacing reconnecting/failed).
+        pongTimeoutRef.current = setTimeout(
+          () => reconnectRef.current(),
+          PONG_TIMEOUT_MS,
+        );
+      }, PING_INTERVAL_MS);
+    };
+
     ws.addEventListener("open", () => {
       if (!aliveRef.current) return;
       setState("connected");
@@ -111,6 +144,7 @@ export function useRelay(
         closeCountRef.current = 0;
         setRetryAttempt(0);
       }, MIN_UPTIME_MS);
+      startHeartbeat();
     });
 
     ws.addEventListener("message", async (event) => {
@@ -120,6 +154,15 @@ export function useRelay(
         const raw =
           event.data instanceof Blob ? await event.data.text() : event.data;
         const msg: RelayMessage = JSON.parse(raw as string);
+
+        // Heartbeat response — clear the pending pong timeout; not forwarded.
+        if (msg.type === "pong") {
+          if (pongTimeoutRef.current) {
+            clearTimeout(pongTimeoutRef.current);
+            pongTimeoutRef.current = null;
+          }
+          return;
+        }
 
         if (msg.type === "peer_connected" || msg.type === "peer_disconnected") {
           const payload = msg.payload as { peer: string };
@@ -140,6 +183,7 @@ export function useRelay(
     ws.addEventListener("close", (event) => {
       if (!aliveRef.current) return;
       clearStableTimer();
+      stopHeartbeat();
 
       if (intentionalCloseRef.current) return; // synthetic close from our own reconnect(); ignore
 
@@ -169,6 +213,7 @@ export function useRelay(
       aliveRef.current = false;
       intentionalCloseRef.current = true;
       clearStableTimer();
+      stopHeartbeat();
       // Deliberate close: partysocket will NOT auto-reconnect (ticket 0005).
       ws.close();
       wsRef.current = null;
@@ -188,6 +233,7 @@ export function useRelay(
     if (!ws) return;
     closeCountRef.current = 0;
     setRetryAttempt(0);
+    stopHeartbeat();
     intentionalCloseRef.current = false;
     setState("connecting");
     // ws.reconnect() dispatches a synthetic close synchronously; ignore it so
@@ -198,7 +244,11 @@ export function useRelay(
     } finally {
       intentionalCloseRef.current = false;
     }
-  }, []);
+    // The heartbeat is restarted by the next "open" event.
+  }, [stopHeartbeat]);
+
+  // Keep the heartbeat's reference to reconnect current across renders.
+  reconnectRef.current = reconnect;
 
   return { state, piStatus, retryAttempt, send, reconnect };
 }

@@ -7,7 +7,9 @@ export type MessageType =
   | "sync_request"
   | "sync_response"
   | "peer_connected"
-  | "peer_disconnected";
+  | "peer_disconnected"
+  | "ping"
+  | "pong";
 
 export interface RelayMessage {
   type: MessageType;

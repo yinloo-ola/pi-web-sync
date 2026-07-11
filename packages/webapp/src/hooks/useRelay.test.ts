@@ -53,7 +53,84 @@ const flushConnect = () =>
     await new Promise((r) => setTimeout(r, 20));
   });
 
-describe("useRelay", () => {
+describe("heartbeat", () => {
+    it("triggers a reconnect when the pong timeout expires (missed pong = zombie)", async () => {
+      vi.useFakeTimers();
+      const onMessage = vi.fn();
+      const { result, unmount } = renderHook(() =>
+        useRelay("s1", "wss://relay.test", onMessage),
+      );
+
+      // Advance past partysocket's initial _wait(0) so it creates the socket.
+      await act(() => vi.advanceTimersByTimeAsync(20));
+      const ws = capturedMock!;
+      expect(ws).toBeDefined();
+
+      // Open the connection.
+      await act(async () => {
+        ws.readyState = 1;
+        ws.dispatch("open", { type: "open" });
+      });
+      expect(result.current.state).toBe("connected");
+
+      // Advance 30s — the ping interval fires, sending a ping and setting a
+      // 10s pong timeout.
+      await act(() => vi.advanceTimersByTimeAsync(30000));
+      expect(ws.send).toHaveBeenCalledWith(
+        expect.stringContaining('"type":"ping"'),
+      );
+
+      // Don't send a pong — advance 10s more to trigger the pong timeout.
+      await act(() => vi.advanceTimersByTimeAsync(10000));
+      // The heartbeat detects the zombie and calls reconnect, setting state
+      // to "connecting".
+      expect(result.current.state).toBe("connecting");
+
+      unmount();
+      vi.useRealTimers();
+    });
+
+    it("does not reconnect when a pong is received within the timeout window", async () => {
+      vi.useFakeTimers();
+      const onMessage = vi.fn();
+      const { result, unmount } = renderHook(() =>
+        useRelay("s1", "wss://relay.test", onMessage),
+      );
+
+      await act(() => vi.advanceTimersByTimeAsync(20));
+      const ws = capturedMock!;
+
+      await act(async () => {
+        ws.readyState = 1;
+        ws.dispatch("open", { type: "open" });
+      });
+      expect(result.current.state).toBe("connected");
+
+      // Advance 30s to trigger the ping interval.
+      await act(() => vi.advanceTimersByTimeAsync(30000));
+
+      // Send a pong back before the 10s timeout expires.
+      await act(async () => {
+        ws.dispatch("message", {
+          type: "message",
+          data: JSON.stringify({
+            type: "pong",
+            sessionId: "s1",
+            payload: {},
+          }),
+        });
+      });
+
+      // Advance 10s more — the pong timeout was cleared, so no reconnect.
+      await act(() => vi.advanceTimersByTimeAsync(10000));
+      expect(result.current.state).toBe("connected");
+
+      unmount();
+      vi.useRealTimers();
+    });
+  });
+
+  describe("useRelay", () => {
   it("buffers messages while disconnected and flushes them on reconnect", async () => {
     const onMessage = vi.fn();
     const { result, unmount } = renderHook(() =>

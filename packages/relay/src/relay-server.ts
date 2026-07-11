@@ -113,6 +113,21 @@ export function handleConnection(
   // Forward messages to the other client
   ws.on("message", (data: Buffer | string) => {
     const text = data.toString();
+
+    // Heartbeat: the relay answers pings directly (does not forward), so a client
+    // with no peer can still probe its own leg to the relay. See ticket 0006.
+    let msgType: string | undefined;
+    try {
+      msgType = (JSON.parse(text) as { type?: string }).type;
+    } catch {
+      // malformed wire message — fall through and forward as-is
+    }
+    if (msgType === "ping") {
+      if (isOpen(ws)) ws.send(JSON.stringify({ type: "pong", sessionId, payload: {} }));
+      return;
+    }
+    if (msgType === "pong") return; // relay never acts on pong; drop
+
     const other = clientType === "pi" ? pair.web : pair.pi;
     if (isOpen(other)) {
       // Send as text frame (string) so browser receives string instead of Blob

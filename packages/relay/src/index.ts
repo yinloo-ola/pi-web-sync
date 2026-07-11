@@ -88,9 +88,25 @@ export class SessionDO implements DurableObject {
 
     // Forward messages to the other peer
     server.addEventListener("message", (event: MessageEvent) => {
+      const data = event.data as string;
+
+      // Heartbeat: answer pings directly (don't forward), so a client with no
+      // peer can still probe its own leg to the relay. See ticket 0006.
+      let msgType: string | undefined;
+      try {
+        msgType = (JSON.parse(data) as { type?: string }).type;
+      } catch {
+        // malformed — fall through and forward
+      }
+      if (msgType === "ping") {
+        if (isOpen(server)) server.send(JSON.stringify({ type: "pong", sessionId, payload: {} }));
+        return;
+      }
+      if (msgType === "pong") return;
+
       const other = clientType === "pi" ? this.web : this.pi;
       if (isOpen(other)) {
-        other.send(event.data as string);
+        other.send(data);
       }
     });
 
