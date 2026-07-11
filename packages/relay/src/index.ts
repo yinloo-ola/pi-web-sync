@@ -12,6 +12,8 @@
  * Local dev: use relay-server.ts (npm run dev)
  */
 
+import { CLOSE_DUPLICATE_WEB, isOpen } from "./close-codes";
+
 interface Env {
   SESSION: DurableObjectNamespace;
 }
@@ -43,6 +45,16 @@ export class SessionDO implements DurableObject {
 
     server.accept();
 
+    // Single-browser-tab policy (matches the dev relay in relay-server.ts):
+    // reject a second *web* client while the first is still live. Pi may still
+    // replace pi. The web app recognizes the close code so it doesn't
+    // reconnect-loop against the relay. (A half-open zombie — no close frame —
+    // still looks OPEN until TCP times out; ticket 0006's heartbeat closes it.)
+    if (clientType === "web" && isOpen(this.web)) {
+      server.close(CLOSE_DUPLICATE_WEB, "Session already has an active browser");
+      return new Response(null, { status: 101, webSocket: client });
+    }
+
     // Store this connection, close old one of same type
     if (clientType === "pi") {
       this.pi?.close();
@@ -55,7 +67,7 @@ export class SessionDO implements DurableObject {
     // Notify the new client about the other peer's status
     const other = clientType === "pi" ? this.web : this.pi;
     const sessionId = url.pathname.split("/").pop() ?? "";
-    if (other && other.readyState === WebSocket.READY_STATE_OPEN) {
+    if (isOpen(other)) {
       server.send(JSON.stringify({
         type: "peer_connected",
         sessionId,
@@ -77,7 +89,7 @@ export class SessionDO implements DurableObject {
     // Forward messages to the other peer
     server.addEventListener("message", (event: MessageEvent) => {
       const other = clientType === "pi" ? this.web : this.pi;
-      if (other && other.readyState === WebSocket.READY_STATE_OPEN) {
+      if (isOpen(other)) {
         other.send(event.data as string);
       }
     });
@@ -85,7 +97,7 @@ export class SessionDO implements DurableObject {
     // On disconnect, notify the other peer
     server.addEventListener("close", () => {
       const other = clientType === "pi" ? this.web : this.pi;
-      if (other && other.readyState === WebSocket.READY_STATE_OPEN) {
+      if (isOpen(other)) {
         other.send(JSON.stringify({
           type: "peer_disconnected",
           sessionId,

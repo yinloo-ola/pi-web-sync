@@ -5,7 +5,9 @@
   "description": "WebSocket relay for pi-web-sync",
   "scripts": {
     "dev": "tsx src/relay-server.ts",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260710.1",
@@ -13,6 +15,7 @@
     "@types/ws": "^8.18.1",
     "tsx": "^4.23.0",
     "typescript": "^5.0.0",
+    "vitest": "^4.1.10",
     "wrangler": "^4.110.0"
   },
   "dependencies": {
