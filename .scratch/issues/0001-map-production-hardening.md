@@ -58,16 +58,15 @@ cleanly when the user disconnects or quits pi.
 <!-- fog cleared: DO hibernation dissolved (finding lives in ticket 0006's
      resolution); observability graduated into ticket 0009. -->
 
-- **Verification-driven fog.** A v0.2 verification pass against the destination
-  (disconnect survival, zombie detection, single-tab enforcement, clean
-  shutdown) will likely surface concrete gaps. One is already visible from code
-  reading: the production Cloudflare DO (`relay/src/index.ts`) has *zero*
-  logging, so a self-hoster running the production relay has no visibility —
-  unlike the dev relay, which now logs connect/disconnect/forward/error. Whether
-  to add DO logging (and in what form — `console.log` shows in `wrangler tail`)
-  depends on whether self-hosters actually deploy the DO vs. the dev relay, which
-  the pass should clarify. Hold here until that pass runs; anything it finds
-  graduates immediately as a sharp ticket.
+- **Verification-driven fog.** Exercised by [Verification pass: exercise the
+  destination criteria](0010-verification-pass.md). One gap is already visible
+  from code reading: the production Cloudflare DO (`relay/src/index.ts`) has
+  *zero* logging, so a self-hoster running the production relay has no
+  visibility — unlike the dev relay. Whether to add DO logging (and in what
+  form — `console.log` shows in `wrangler tail`) depends on whether self-hosters
+  actually deploy the DO vs. the dev relay, which the pass evaluates. Anything
+  the pass finds graduates immediately as a sharp ticket; if all four criteria
+  pass, the destination is reached and the effort closes.
 
 ## Out of scope
 
