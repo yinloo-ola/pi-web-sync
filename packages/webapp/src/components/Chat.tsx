@@ -25,6 +25,7 @@ const RELAY_STATUS: Record<Exclude<RelayState, "reconnecting">, StatusDisplay> =
   connecting: { text: "Connecting…", color: "#FF9500" },
   connected: { text: "Connected", color: "#34C759" },
   failed: { text: "Connection failed", color: "#FF3B30" },
+  rejected: { text: "Rejected", color: "#FF3B30" },
 };
 
 const PI_STATUS: Record<PiStatus, StatusDisplay> = {
@@ -54,6 +55,13 @@ export function Chat({
           color: "#FF9500",
         }
       : RELAY_STATUS[connectionState];
+
+  const banner =
+    connectionState === "failed"
+      ? { message: "Couldn't reach the relay after several tries.", action: "Reconnect" }
+      : connectionState === "rejected"
+        ? { message: "This session is already open in another tab.", action: "Try again" }
+        : null;
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -106,8 +114,8 @@ export function Chat({
         </div>
       </div>
 
-      {/* Connection-failed banner with manual reconnect */}
-      {connectionState === "failed" && (
+      {/* Connection-failed / duplicate-tab banner with a manual action */}
+      {banner && (
         <div
           style={{
             padding: "12px 20px",
@@ -119,9 +127,7 @@ export function Chat({
             gap: 12,
           }}
         >
-          <span style={{ fontSize: 14, color: "#FF3B30" }}>
-            Couldn't reach the relay after several tries.
-          </span>
+          <span style={{ fontSize: 14, color: "#FF3B30" }}>{banner.message}</span>
           <button
             type="button"
             onClick={onReconnect}
@@ -135,7 +141,7 @@ export function Chat({
               cursor: "pointer",
             }}
           >
-            Reconnect
+            {banner.action}
           </button>
         </div>
       )}

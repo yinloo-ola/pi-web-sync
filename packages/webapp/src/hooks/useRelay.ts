@@ -4,7 +4,12 @@ import type { Options as ReconnectOptions } from "partysocket/ws";
 import type { RelayMessage } from "../types";
 
 /** Connection state for the relay WebSocket. */
-export type RelayState = "connecting" | "connected" | "reconnecting" | "failed";
+export type RelayState =
+  | "connecting"
+  | "connected"
+  | "reconnecting"
+  | "failed"
+  | "rejected";
 /** Whether pi is connected to this session. */
 export type PiStatus = "connected" | "disconnected" | "unknown";
 
@@ -18,6 +23,14 @@ export type PiStatus = "connected" | "disconnected" | "unknown";
 const MAX_RETRIES = 10;
 const MIN_UPTIME_MS = 5000;
 
+/**
+ * Relay close code for "another browser tab already holds this session"
+ * (see packages/relay/src/close-codes.ts). Recognized here so the web app shows
+ * a message instead of reconnect-looping against the relay. A shared constants
+ * package (ticket 0008) will eventually remove this duplication.
+ */
+const CLOSE_DUPLICATE_WEB = 4002;
+
 const RECONNECT_OPTIONS: ReconnectOptions = {
   maxRetries: MAX_RETRIES,
   minReconnectionDelay: 1000, // partysocket adds its own jitter on top
@@ -26,6 +39,9 @@ const RECONNECT_OPTIONS: ReconnectOptions = {
   maxEnqueuedMessages: 100,
   connectionTimeout: 4000,
   minUptime: MIN_UPTIME_MS,
+  // The single-browser-tab reject (ticket 0004) must NOT trigger auto-reconnect
+  // or partysocket would hammer the relay forever.
+  shouldReconnectOnClose: (event) => event.code !== CLOSE_DUPLICATE_WEB,
 };
 
 /** Hook that manages the relay WebSocket connection with auto-reconnect. */
@@ -121,11 +137,18 @@ export function useRelay(
       }
     });
 
-    ws.addEventListener("close", () => {
+    ws.addEventListener("close", (event) => {
       if (!aliveRef.current) return;
       clearStableTimer();
 
       if (intentionalCloseRef.current) return; // synthetic close from our own reconnect(); ignore
+
+      // Relay rejected us: another tab holds this session. shouldReconnectOnClose
+      // already stopped partysocket from retrying; surface a distinct state.
+      if (event.code === CLOSE_DUPLICATE_WEB) {
+        setState("rejected");
+        return;
+      }
 
       // Accidental close. partysocket has already decided by now: it either
       // scheduled another retry or gave up at maxRetries. Our counter climbs in

@@ -95,4 +95,37 @@ describe("useRelay", () => {
     unmount();
     expect(ws!.close).toHaveBeenCalled(); // deliberate close on teardown
   });
+
+  it("surfaces a relay duplicate-tab reject (close 4002) as 'rejected' without reconnecting", async () => {
+    const onMessage = vi.fn();
+    const { result, unmount } = renderHook(() =>
+      useRelay("s1", "wss://relay.test", onMessage),
+    );
+    await flushConnect();
+    const ws = capturedMock!;
+
+    // Connect, then the relay rejects us as a duplicate tab.
+    await act(async () => {
+      ws.readyState = 1; // OPEN
+      ws.dispatch("open", { type: "open" });
+    });
+    expect(result.current.state).toBe("connected");
+
+    await act(async () => {
+      ws.dispatch("close", {
+        code: 4002,
+        reason: "Session already has an active browser",
+      });
+    });
+    expect(result.current.state).toBe("rejected");
+
+    // shouldReconnectOnClose returned false for 4002, so partysocket must NOT
+    // have created a new underlying socket (no reconnect loop against the relay).
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    expect(capturedMock).toBe(ws);
+
+    unmount();
+  });
 });
