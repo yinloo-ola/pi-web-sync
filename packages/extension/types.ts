@@ -1,4 +1,7 @@
-/** Message envelope for pi ↔ relay ↔ webapp communication. */
+/**
+ * Single source of truth for relay wire types.
+ * Both the extension and the web app import from here — do not duplicate.
+ */
 
 export type MessageType =
   | "user_message"

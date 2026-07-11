@@ -2,7 +2,8 @@ import { useCallback } from "react";
 import { Chat } from "./components/Chat";
 import { useRelay } from "./hooks/useRelay";
 import { useLocalStorage } from "./hooks/useLocalStorage";
-import type { ChatMessage, RelayMessage } from "./types";
+import type { ChatMessage } from "./types";
+import type { RelayMessage } from "../../extension/types";
 
 const RELAY_URL = import.meta.env.VITE_RELAY_URL;
 
@@ -32,7 +33,7 @@ export default function App() {
     );
   }
 
-  const { messages, addMessage, clearMessages } = useLocalStorage(sessionId);
+  const { messages, addMessage } = useLocalStorage(sessionId);
 
   const handleMessage = useCallback(
     (msg: RelayMessage) => {

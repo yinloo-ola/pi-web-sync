@@ -3,11 +3,10 @@ import type { ChatMessage } from "../types";
 
 const STORAGE_PREFIX = "pi-web-sync:";
 
-/** Hook that persists chat messages to localStorage. Returns messages, addMessage, and clearMessages. */
+/** Hook that persists chat messages to localStorage. Returns messages and addMessage. */
 export function useLocalStorage(sessionId: string): {
   messages: ChatMessage[];
   addMessage: (msg: ChatMessage) => void;
-  clearMessages: () => void;
 } {
   const key = `${STORAGE_PREFIX}${sessionId}`;
 
@@ -42,10 +41,5 @@ export function useLocalStorage(sessionId: string): {
     [persist],
   );
 
-  const clearMessages = useCallback(() => {
-    setMessages([]);
-    persist([]);
-  }, [persist]);
-
-  return { messages, addMessage, clearMessages };
+  return { messages, addMessage };
 }

@@ -4,14 +4,36 @@ title: "Shared types package + dead code cleanup"
 type: task
 parent: 0001
 blocked_by: []
-assigned: null
-status: open
+assigned: yinlootan
+status: closed
 ---
 
 ## Question
 
 Stop the `RelayMessage` type from drifting across packages and remove the dead
 code flagged in the v0.1 verification report.
+
+## Resolution
+
+**Shared types:** The extension's `types.ts` is now the single source of truth
+(doc comment updated). The webapp's `types.ts` was rewritten to contain only
+`ChatMessage` (webapp-specific). Three webapp files (`useRelay.ts`,
+`useRelay.test.ts`, `App.tsx`) now import `RelayMessage` and `MessageType` from
+`../../../extension/types` (or `../../extension/types` from `src/`).
+
+**Dead code removed:**
+- `clearMessages` deleted from `useLocalStorage.ts` (was exported, destructured
+  in `App.tsx`, never called).
+- `clearMessages` removed from `App.tsx` destructuring.
+
+**`sessionId` in `ChatProps`:** Already absent from the codebase — no action needed.
+
+**Done when** checklist:
+- ✅ Single source of truth for `RelayMessage` / `MessageType` (extension/types.ts)
+- ✅ Webapp imports relay types from extension (no duplicates)
+- ✅ `clearMessages` removed
+- ✅ Unused `sessionId` prop already gone
+- ✅ tsc clean, 17/17 extension+relay tests pass
 
 ## Context
 

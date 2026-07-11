@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { WebSocket as ReconnectingWebSocket } from "partysocket";
 import type { Options as ReconnectOptions } from "partysocket/ws";
-import type { RelayMessage } from "../types";
+import type { RelayMessage } from "../../../extension/types";
 
 /** Connection state for the relay WebSocket. */
 export type RelayState =

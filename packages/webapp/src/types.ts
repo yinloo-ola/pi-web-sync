@@ -1,21 +1,7 @@
-/** Shared types for the web app. Mirrors extension/types.ts. */
-
-export type MessageType =
-  | "user_message"
-  | "assistant_delta"
-  | "assistant_done"
-  | "sync_request"
-  | "sync_response"
-  | "peer_connected"
-  | "peer_disconnected"
-  | "ping"
-  | "pong";
-
-export interface RelayMessage {
-  type: MessageType;
-  sessionId: string;
-  payload: Record<string, unknown>;
-}
+/**
+ * Web-app-specific types. Relay types (RelayMessage, MessageType, payloads)
+ * live in packages/extension/types.ts — import from there to avoid drift.
+ */
 
 export interface ChatMessage {
   id: string;
