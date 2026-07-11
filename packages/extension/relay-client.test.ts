@@ -248,5 +248,48 @@ describe("RelayClient", () => {
       client.disconnect();
       expect(capturedMock!.close).toHaveBeenCalled();
     });
+
+    it("does not trigger auto-reconnect after deliberate disconnect", async () => {
+      const client = makeClient();
+      const statuses: Array<[ConnectionState, number]> = [];
+      client.onStatus((state, attempt) => statuses.push([state, attempt]));
+
+      const p = client.connect();
+      await flushConnect();
+      capturedMock!.readyState = 1;
+      capturedMock!.dispatch("open", { type: "open" });
+      await p;
+      expect(statuses).toContainEqual(["connected", 0]);
+
+      // Deliberate disconnect — must NOT trigger a reconnect.
+      client.disconnect();
+      expect(capturedMock!.close).toHaveBeenCalled();
+
+      // Wait for any pending timers — no "reconnecting" status must appear.
+      await delay(100);
+      expect(statuses.find((s) => s[0] === "reconnecting")).toBeUndefined();
+    });
+
+    it("allows a fresh connect after disconnect", async () => {
+      const client = makeClient();
+      const p = client.connect();
+      await flushConnect();
+      capturedMock!.readyState = 1;
+      capturedMock!.dispatch("open", { type: "open" });
+      await p;
+
+      client.disconnect();
+      capturedMock = null;
+
+      // Reconnect after disconnect — must create a new socket.
+      const p2 = client.connect();
+      await flushConnect();
+      expect(capturedMock).not.toBeNull();
+      capturedMock!.readyState = 1;
+      capturedMock!.dispatch("open", { type: "open" });
+      await p2;
+
+      client.disconnect();
+    });
   });
 });

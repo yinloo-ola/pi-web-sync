@@ -74,7 +74,7 @@ export default function (pi: ExtensionAPI) {
   let webappUrl = WEBAPP_URL;
 
   /** Attempt to connect to the relay. Returns true on success. */
-  async function connectRelay(ctx: { ui: any; sessionManager: { getBranch: () => Array<Record<string, unknown>>; getSessionId: () => string } }): Promise<boolean> {
+  async function connectRelay(ctx: ExtensionCommandContext): Promise<boolean> {
     const sid = ctx.sessionManager.getSessionId();
     sessionId = sid;
 
@@ -108,9 +108,9 @@ export default function (pi: ExtensionAPI) {
         try {
           const entries = ctx.sessionManager.getBranch();
           const messages = entries
-            .filter((e: Record<string, unknown>) => (e as { type: string }).type === "message")
-            .map((e: Record<string, unknown>) => {
-              const msg = (e as { message: Record<string, unknown> }).message;
+            .filter((e) => e.type === "message")
+            .map((e) => {
+              const msg = e.message;
               if (msg.role === "user") {
                 return { role: "user" as const, text: extractText(msg.content), timestamp: msg.timestamp ?? Date.now() };
               }

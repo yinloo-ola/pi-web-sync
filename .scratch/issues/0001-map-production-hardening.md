@@ -45,6 +45,8 @@ cleanly when the user disconnects or quits pi.
 - [Adopt partysocket + reconnection in the web app](0002-adopt-partysocket-webapp.md) — webapp now uses partysocket: auto-reconnect on accidental close, message buffering while down (send no longer drops on disconnect), and a reconnecting/failed UI with a manual Reconnect button; failure detection mirrors partysocket's minUptime rather than reading retryCount.
 - [Enforce a single browser tab at the relay](0004-enforce-single-browser-relay.md) — both relays close a second web client with code 4002; web app shows "already open in another tab" and doesn't reconnect. Clean closes tracked via close-listener + isOpen; zombies deferred to 0006. Drive-by fixed the relay's READY_STATE_OPEN tsc errors.
 - [Adopt partysocket + reconnection in the extension](0003-adopt-partysocket-extension.md) — RelayClient wraps partysocket (WebSocket: WS); handlers survive reconnects, sends buffer while down, and onStatus drives the pi footer (connected URL / reconnecting (N/10) / failed). /web-sync connect retries after a mid-session failure.
+- [Heartbeat / liveness: detect zombie connections](0006-heartbeat-liveness.md) — relay answers ping with pong directly (no peer forwarding); extension + webapp ping every 30s, reconnect on 10s pong timeout; DO hibernation not in play (non-hibernating API). 5 new tests, all pass.
+- [Clean shutdown: disconnect and session_shutdown must not auto-reconnect](0005-clean-shutdown-semantics.md) — already correct from 0003/0004; fixed duplicate options bug in relay-client.ts, added 2 shutdown tests (10 total).
 
 ## Not yet specified
 

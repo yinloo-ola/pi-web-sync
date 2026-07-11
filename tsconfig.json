@@ -11,8 +11,7 @@
     "sourceMap": true,
     "outDir": "./dist",
     "rootDir": "./packages",
-    "jsx": "react-jsx",
-    "types": []
+    "jsx": "react-jsx"
   },
   "include": ["packages/**/*"],
   "exclude": ["node_modules", "dist"]

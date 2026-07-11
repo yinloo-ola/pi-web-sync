@@ -66,12 +66,13 @@ export class RelayClient {
   private pongTimeout: ReturnType<typeof setTimeout> | null = null;
   private intentionalClose = false;
   private opened = false;
-  private readonly options: RelayClientOptions;
+  private readonly heartbeat: RelayClientOptions['heartbeat'];
 
   constructor(url: string, sessionId: string, options: RelayClientOptions = {}) {
     this.url = url;
     this.sessionId = sessionId;
-    this.options = { ...RECONNECT_OPTIONS, ...options, WebSocket: options.WebSocket ?? WS };
+    this.heartbeat = options.heartbeat;
+    this.options = { ...RECONNECT_OPTIONS, WebSocket: options.WebSocket ?? WS };
   }
 
   /** Connect to the relay. Resolves on first open; rejects on first error. */
@@ -225,8 +226,8 @@ export class RelayClient {
 
   /** Start the app-level ping/pong heartbeat (called on each open). */
   private startHeartbeat(ws: ReconnectingWebSocket): void {
-    const pingInterval = this.options.heartbeat?.pingIntervalMs ?? PING_INTERVAL_MS;
-    const pongTimeout = this.options.heartbeat?.pongTimeoutMs ?? PONG_TIMEOUT_MS;
+    const pingInterval = this.heartbeat?.pingIntervalMs ?? PING_INTERVAL_MS;
+    const pongTimeout = this.heartbeat?.pongTimeoutMs ?? PONG_TIMEOUT_MS;
     this.stopHeartbeat();
     this.pingInterval = setInterval(() => {
       ws.send(JSON.stringify({ type: "ping", sessionId: this.sessionId, payload: {} }));
