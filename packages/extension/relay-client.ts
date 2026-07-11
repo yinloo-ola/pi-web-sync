@@ -104,8 +104,8 @@ export class RelayClient {
         } else if (msg.type !== "peer_disconnected") {
           this.messageHandler?.(msg);
         }
-      } catch {
-        // Ignore malformed wire messages.
+      } catch (err) {
+        console.debug("[pi-web-sync] ignoring malformed wire message:", err instanceof Error ? err.message : err);
       }
     });
 

@@ -27,7 +27,8 @@ function loadConfig(): WebSyncConfig {
         if (config.relayUrl && config.webappUrl) {
           return config;
         }
-      } catch {
+      } catch (err) {
+        console.warn(`[pi-web-sync] failed to load config from ${path}:`, err instanceof Error ? err.message : err);
       }
     }
   }
@@ -126,8 +127,8 @@ export default function (pi: ExtensionAPI) {
             sessionId: sessionId!,
             payload: { messages },
           });
-        } catch {
-          // Sync request non-critical
+        } catch (err) {
+          console.warn("[pi-web-sync] sync_response failed:", err instanceof Error ? err.message : err);
         }
       });
 
@@ -167,7 +168,8 @@ export default function (pi: ExtensionAPI) {
         ui.setWidget("pi-web-sync", []);
         qrTimeout = null;
       }, 10_000);
-    } catch {
+    } catch (err) {
+      console.debug("[pi-web-sync] QR code render failed:", err instanceof Error ? err.message : err);
       ui.notify(`Web sync: ${url}`, "info");
     }
   }

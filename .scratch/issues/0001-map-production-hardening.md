@@ -47,6 +47,7 @@ cleanly when the user disconnects or quits pi.
 - [Adopt partysocket + reconnection in the extension](0003-adopt-partysocket-extension.md) — RelayClient wraps partysocket (WebSocket: WS); handlers survive reconnects, sends buffer while down, and onStatus drives the pi footer (connected URL / reconnecting (N/10) / failed). /web-sync connect retries after a mid-session failure.
 - [Heartbeat / liveness: detect zombie connections](0006-heartbeat-liveness.md) — relay answers ping with pong directly (no peer forwarding); extension + webapp ping every 30s, reconnect on 10s pong timeout; DO hibernation not in play (non-hibernating API). 5 new tests, all pass.
 - [Clean shutdown: disconnect and session_shutdown must not auto-reconnect](0005-clean-shutdown-semantics.md) — already correct from 0003/0004; fixed duplicate options bug in relay-client.ts, added 2 shutdown tests (10 total).
+- [Stop swallowing errors: surface config and sync failures](0007-error-visibility.md) — four silent `catch {}` blocks replaced: config parse warns with file+error, sync_response warns, wire-message and QR render log at debug; `[pi-web-sync]` prefix convention established.
 
 ## Not yet specified
 
