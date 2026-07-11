@@ -5,7 +5,7 @@ type: task
 parent: 0001
 blocked_by: []
 assigned: tan.yinloo
-status: open
+status: closed
 ---
 
 ## Question
@@ -57,3 +57,55 @@ retry progress to the extension UI.
   connectionTimeout: 4000,
 }
 ```
+
+## Resolution
+
+RelayClient now wraps a partysocket WebSocket, mirroring the web app (ticket
+0002) but with `WebSocket: WS` from the `ws` package for Node.
+
+### What changed
+
+- **`relay-client.ts`** — constructs a partysocket `WebSocket` with the agreed
+  config. Handlers (`message`, `sync_request`) attach to the persistent
+  partysocket **instance**, so they survive reconnects — the core fix; the old
+  code attached them to a one-shot raw socket, so a mid-session drop left
+  `send()` silently no-op'ing forever. `send()` now always hands off to
+  partysocket, which buffers up to `maxEnqueuedMessages` while down. New
+  `onStatus(state, attempt)` drives the footer; `reconnect()` supports retrying
+  after failure.
+- **`index.ts`** — `connectRelay` registers `onStatus` before `connect()` so the
+  footer shows the connected URL, `Web sync: reconnecting (N/10)…`, or a failed
+  state. `/web-sync connect` after a mid-session failure calls `client.reconnect()`
+  instead of "already connected". Disconnect and shutdown reset the state.
+- **`package.json`** — `ws` added to deps (partysocket/`@types/ws` were already
+  staged from the prior session).
+- **`relay-client.test.ts`** — rewritten around an injected `MockWebSocket`
+  (passed via `RelayClientOptions.WebSocket`, since partysocket wraps the ctor
+  from options rather than a global): connect, buffering-then-flush, message
+  routing (sync_request routed, peer_disconnected dropped), status, disconnect.
+
+### Decision (A): connect() semantics
+
+`connect()` resolves on first open and rejects on first error, so an explicit
+`/web-sync connect` to an unreachable relay fails fast (current UX preserved).
+Mid-session drops then retry via partysocket, surfaced through `onStatus`. The
+alternative (retry visibly even on initial connect) was rejected as a larger UX
+change; both paths still let the user retry.
+
+### Notes
+
+- `minUptime: 5000` set explicitly (partysocket's default, which the agreed
+  config block omitted), matching ticket 0002 — failure detection mirrors
+  partysocket's internal `_acceptOpen` via our own close counter rather than the
+  ambiguous `retryCount`.
+- The prior session left uncommitted QR-auto-dismiss work in `index.ts` plus the
+  partysocket/`@types/ws` deps; the QR feature was committed separately (c9d7541)
+  and 0003 built on the deps without touching the QR code.
+
+### Verification
+
+- `vitest run`: 6/6 (connect open/error, buffering, message routing, status,
+  disconnect).
+- `tsc --noEmit`: no new errors (extension's 8 pre-existing — implicit-any on
+  handler params + the missing pi-sdk module import — are unchanged and out of
+  scope).
