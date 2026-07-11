@@ -37,7 +37,6 @@ export default function App() {
 
   const handleMessage = useCallback(
     (msg: RelayMessage) => {
-      console.log("[App] handleMessage:", msg.type);
       if (msg.type === "user_message") {
         const payload = msg.payload as { text: string; timestamp: number };
         addMessage({

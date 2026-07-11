@@ -82,7 +82,7 @@ export function handleConnection(
   sessions.set(sessionId, pair);
 
   console.log(
-    `[relay] ${clientType} connected to session ${sessionId} (${sessions.size} active sessions)`,
+    `[pi-web-sync] ${clientType} connected to session ${sessionId} (${sessions.size} active sessions)`,
   );
 
   // Notify the new client about the other peer's status
@@ -132,11 +132,11 @@ export function handleConnection(
     if (isOpen(other)) {
       // Send as text frame (string) so browser receives string instead of Blob
       other.send(text);
-      console.log(
-        `[relay] forwarded ${text.length} bytes: ${clientType} → ${clientType === "pi" ? "web" : "pi"}`,
+      console.debug(
+        `[pi-web-sync] forwarded ${text.length} bytes: ${clientType} → ${clientType === "pi" ? "web" : "pi"}`,
       );
     } else {
-      console.log(`[relay] no paired client for ${clientType} in session ${sessionId}`);
+      console.debug(`[pi-web-sync] no paired client for ${clientType} in session ${sessionId}`);
     }
   });
 
@@ -154,12 +154,12 @@ export function handleConnection(
 
     if (!pair.pi && !pair.web) sessions.delete(sessionId);
     console.log(
-      `[relay] ${clientType} disconnected from session ${sessionId} (code=${code}, reason=${reason})`,
+      `[pi-web-sync] ${clientType} disconnected from session ${sessionId} (code=${code}, reason=${reason})`,
     );
   });
 
   ws.on("error", (err) => {
-    console.error(`[relay] ${clientType} error:`, err.message);
+    console.error(`[pi-web-sync] ${clientType} error:`, err.message);
   });
 }
 
@@ -175,5 +175,5 @@ export function createRelay(port: number): { wss: WebSocketServer; sessions: Ses
 // by tests.
 if (basename(process.argv[1] ?? "") === "relay-server.ts") {
   createRelay(PORT);
-  console.log(`pi-web-sync relay listening on ws://localhost:${PORT}`);
+  console.log(`[pi-web-sync] relay listening on ws://localhost:${PORT}`);
 }
