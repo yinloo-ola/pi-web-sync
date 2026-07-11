@@ -54,14 +54,14 @@ cleanly when the user disconnects or quits pi.
 
 <!-- fog: in-scope decisions not yet sharp enough to ticket -->
 
-- **Durable Object hibernation vs heartbeat.** Cloudflare DOs can hibernate idle
-  WebSocket connections. Whether the app-level heartbeat (ticket 0006) interacts
-  with DO hibernation, or whether hibernation makes heartbeat unnecessary on the
-  relay leg, needs a look once 0006 is in flight. May graduate into a ticket or
-  dissolve.
-- **Observability beyond `console.warn`.** How much logging is enough for a
-  self-hoster debugging a flaky relay? Likely settles during 0007; could become
-  its own small ticket if it grows.
+<!-- fog cleared: DO hibernation dissolved (finding lives in ticket 0006's
+     resolution); observability graduated into ticket 0009. -->
+
+- **Verification-driven fog.** A v0.2 verification pass against the destination
+  (disconnect survival, zombie detection, single-tab enforcement, clean
+  shutdown) will likely surface concrete gaps. None are visible yet from code
+  reading alone — they need the built thing exercised. Hold here until that pass
+  runs; anything it finds graduates immediately as a sharp ticket.
 
 ## Out of scope
 
