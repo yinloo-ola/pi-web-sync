@@ -8,29 +8,52 @@ interface ChatProps {
   messages: ChatMessage[];
   onSendMessage: (text: string) => void;
   connectionState: RelayState;
+  /** Reconnect attempt (1-based) while `connectionState === "reconnecting"`. */
+  retryAttempt: number;
   piStatus: PiStatus;
+  onReconnect: () => void;
 }
 
-const RELAY_STATUS_LABELS: Record<RelayState, { text: string; color: string }> = {
+interface StatusDisplay {
+  text: string;
+  color: string;
+}
+
+/** Relay status label/color for the static states. "reconnecting" is dynamic —
+ * computed inline with `retryAttempt`. */
+const RELAY_STATUS: Record<Exclude<RelayState, "reconnecting">, StatusDisplay> = {
   connecting: { text: "Connecting…", color: "#FF9500" },
   connected: { text: "Connected", color: "#34C759" },
-  disconnected: { text: "Disconnected", color: "#FF3B30" },
-  error: { text: "Error", color: "#FF3B30" },
+  failed: { text: "Connection failed", color: "#FF3B30" },
 };
 
-const PI_STATUS_LABELS: Record<PiStatus, { text: string; color: string }> = {
+const PI_STATUS: Record<PiStatus, StatusDisplay> = {
   connected: { text: "Pi Connected", color: "#34C759" },
   disconnected: { text: "Pi Disconnected", color: "#FF3B30" },
   unknown: { text: "Pi Status Unknown", color: "#FF9500" },
 };
 
 /** Main chat UI: message list, input box, connection status. */
-export function Chat({ messages, onSendMessage, connectionState, piStatus }: ChatProps) {
+export function Chat({
+  messages,
+  onSendMessage,
+  connectionState,
+  retryAttempt,
+  piStatus,
+  onReconnect,
+}: ChatProps) {
   const [input, setInput] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
-  const relayStatus = RELAY_STATUS_LABELS[connectionState];
-  const piStatusLabel = PI_STATUS_LABELS[piStatus];
+  const piStatusLabel = PI_STATUS[piStatus];
   const canSend = connectionState === "connected" && piStatus !== "disconnected";
+
+  const relayStatus: StatusDisplay =
+    connectionState === "reconnecting"
+      ? {
+          text: `Reconnecting… (attempt ${retryAttempt})`,
+          color: "#FF9500",
+        }
+      : RELAY_STATUS[connectionState];
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -82,6 +105,40 @@ export function Chat({ messages, onSendMessage, connectionState, piStatus }: Cha
           <span style={{ fontSize: 13, color: "#8E8E93" }}>{piStatusLabel.text}</span>
         </div>
       </div>
+
+      {/* Connection-failed banner with manual reconnect */}
+      {connectionState === "failed" && (
+        <div
+          style={{
+            padding: "12px 20px",
+            borderBottom: "1px solid #E5E5EA",
+            backgroundColor: "#FFF3F2",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+          }}
+        >
+          <span style={{ fontSize: 14, color: "#FF3B30" }}>
+            Couldn't reach the relay after several tries.
+          </span>
+          <button
+            type="button"
+            onClick={onReconnect}
+            style={{
+              padding: "8px 16px",
+              borderRadius: 16,
+              border: "1px solid #FF3B30",
+              backgroundColor: "white",
+              color: "#FF3B30",
+              fontSize: 14,
+              cursor: "pointer",
+            }}
+          >
+            Reconnect
+          </button>
+        </div>
+      )}
 
       {/* Message list */}
       <div

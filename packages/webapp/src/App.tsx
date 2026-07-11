@@ -60,7 +60,11 @@ export default function App() {
     [addMessage],
   );
 
-  const { state, piStatus, send } = useRelay(sessionId, RELAY_URL, handleMessage);
+  const { state, piStatus, retryAttempt, send, reconnect } = useRelay(
+    sessionId,
+    RELAY_URL,
+    handleMessage,
+  );
 
   const handleSend = useCallback(
     (text: string) => {
@@ -84,7 +88,9 @@ export default function App() {
       messages={messages}
       onSendMessage={handleSend}
       connectionState={state}
+      retryAttempt={retryAttempt}
       piStatus={piStatus}
+      onReconnect={reconnect}
     />
   );
 }
