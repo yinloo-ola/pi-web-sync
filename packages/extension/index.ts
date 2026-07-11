@@ -3,7 +3,7 @@ import { homedir } from "os";
 import { join } from "path";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import QRCode from "qrcode";
-import { RelayClient } from "./relay-client";
+import { RelayClient, MAX_RETRIES, type ConnectionState } from "./relay-client";
 import type { RelayMessage } from "./types";
 
 interface WebSyncConfig {
@@ -68,6 +68,7 @@ function getSessionUrl(sessionId: string, webappUrl: string): string {
 export default function (pi: ExtensionAPI) {
   let client: RelayClient | null = null;
   let sessionId: string | null = null;
+  let connectionState: ConnectionState | null = null;
   let assistantBuffer = "";
   let relayUrl = RELAY_URL;
   let webappUrl = WEBAPP_URL;
@@ -78,10 +79,21 @@ export default function (pi: ExtensionAPI) {
     sessionId = sid;
 
     try {
-      client = new RelayClient(relayUrl, sessionId);
-      await client.connect();
-
       const sessionUrl = getSessionUrl(sid, webappUrl);
+      client = new RelayClient(relayUrl, sessionId);
+
+      // Connection state drives the footer (connected URL, reconnect progress,
+      // failure). Registered before connect() so the first "connected" is caught.
+      client.onStatus((state, attempt) => {
+        connectionState = state;
+        if (state === "connected") {
+          ctx.ui.setStatus("pi-web-sync", sessionUrl);
+        } else if (state === "reconnecting") {
+          ctx.ui.setStatus("pi-web-sync", `Web sync: reconnecting (${attempt}/${MAX_RETRIES})…`);
+        } else if (state === "failed") {
+          ctx.ui.setStatus("pi-web-sync", "Web sync: connection failed — /web-sync connect to retry");
+        }
+      });
 
       // Listen for messages from web app
       client.onMessage(async (msg: RelayMessage) => {
@@ -119,15 +131,15 @@ export default function (pi: ExtensionAPI) {
         }
       });
 
+      await client.connect();
+
       // Show QR code for the session URL (auto-dismisses after 10s)
       showQrCode(ctx.ui, sessionUrl);
-
-      // Show connection status in footer
-      ctx.ui.setStatus("pi-web-sync", sessionUrl);
       return true;
     } catch {
       ctx.ui.notify("Web sync: relay connection failed", "error");
       ctx.ui.setStatus("pi-web-sync", "");
+      connectionState = null;
       sessionId = null;
       client = null;
       return false;
@@ -169,6 +181,7 @@ export default function (pi: ExtensionAPI) {
     client?.disconnect();
     client = null;
     sessionId = null;
+    connectionState = null;
     assistantBuffer = "";
     ctx?.ui?.setWidget?.("pi-web-sync", []);
     ctx?.ui?.setStatus?.("pi-web-sync", "");
@@ -181,7 +194,12 @@ export default function (pi: ExtensionAPI) {
       if (!args || args.startsWith("connect")) {
         // /web-sync or /web-sync connect [relay_url] [webapp_url]
         if (client) {
-          ctx.ui.notify("Web sync: already connected", "info");
+          if (connectionState === "failed") {
+            client.reconnect();
+            ctx.ui.setStatus("pi-web-sync", "Web sync: reconnecting…");
+          } else {
+            ctx.ui.notify("Web sync: already connected", "info");
+          }
           return;
         }
         const parts = args ? args.split(" ") : [];
@@ -284,6 +302,7 @@ export default function (pi: ExtensionAPI) {
     client?.disconnect();
     client = null;
     sessionId = null;
+    connectionState = null;
     assistantBuffer = "";
     ctx?.ui?.setWidget?.("pi-web-sync", []);
     ctx?.ui?.setStatus?.("pi-web-sync", "");
