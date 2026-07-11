@@ -119,17 +119,8 @@ export default function (pi: ExtensionAPI) {
         }
       });
 
-      // Show QR code for the session URL
-      try {
-        const qrString = await QRCode.toString(sessionUrl, { type: "terminal", small: true });
-        ctx.ui.setWidget("pi-web-sync", [
-          "📱 Scan to open web sync:",
-          qrString,
-          sessionUrl,
-        ]);
-      } catch {
-        ctx.ui.notify(`Web sync: ${sessionUrl}`, "info");
-      }
+      // Show QR code for the session URL (auto-dismisses after 10s)
+      showQrCode(ctx.ui, sessionUrl);
 
       // Show connection status in footer
       ctx.ui.setStatus("pi-web-sync", sessionUrl);
@@ -143,8 +134,38 @@ export default function (pi: ExtensionAPI) {
     }
   }
 
+  let qrTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  /** Show QR code widget and auto-dismiss after 10 seconds. */
+  async function showQrCode(ui: any, url: string): Promise<void> {
+    // Clear any previous timeout
+    if (qrTimeout !== null) {
+      clearTimeout(qrTimeout);
+      qrTimeout = null;
+    }
+
+    try {
+      const qrString = await QRCode.toString(url, { type: "terminal", small: true });
+      ui.setWidget("pi-web-sync", [
+        "📱 Scan to open web sync (auto-dismisses in 10s):",
+        qrString,
+        url,
+      ]);
+      qrTimeout = setTimeout(() => {
+        ui.setWidget("pi-web-sync", []);
+        qrTimeout = null;
+      }, 10_000);
+    } catch {
+      ui.notify(`Web sync: ${url}`, "info");
+    }
+  }
+
   /** Disconnect from relay. */
   function disconnectRelay(ctx?: { ui?: { setWidget?: (key: string, lines: string[]) => void; setStatus?: (key: string, text: string) => void } }): void {
+    if (qrTimeout !== null) {
+      clearTimeout(qrTimeout);
+      qrTimeout = null;
+    }
     client?.disconnect();
     client = null;
     sessionId = null;
@@ -155,7 +176,7 @@ export default function (pi: ExtensionAPI) {
 
   // Register /web-sync command (gets auto-complete in pi)
   pi.registerCommand("web-sync", {
-    description: "Sync pi session with web app — connect, disconnect, or status",
+    description: "Sync pi session with web app — connect, disconnect, status, or qr",
     handler: async (args, ctx: ExtensionCommandContext) => {
       if (!args || args.startsWith("connect")) {
         // /web-sync or /web-sync connect [relay_url] [webapp_url]
@@ -178,6 +199,16 @@ export default function (pi: ExtensionAPI) {
           disconnectRelay(ctx);
           ctx.ui.notify("Web sync: disconnected", "info");
         }
+      } else if (args.startsWith("qr")) {
+        if (!client || !sessionId) {
+          ctx.ui.notify("Web sync: not connected", "info");
+          return;
+        }
+        if (!webappUrl) {
+          ctx.ui.notify("Web sync: no webapp URL configured", "error");
+          return;
+        }
+        await showQrCode(ctx.ui, getSessionUrl(sessionId, webappUrl));
       } else if (args.startsWith("status")) {
         if (client && sessionId) {
           ctx.ui.notify(`Web sync: connected — ${getSessionUrl(sessionId, webappUrl)}`, "info");
@@ -188,9 +219,23 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
+  // Dismiss QR widget when user starts typing (any non-empty input)
+  function dismissQrWidget(ui: any): void {
+    if (qrTimeout !== null) {
+      clearTimeout(qrTimeout);
+      qrTimeout = null;
+    }
+    ui.setWidget("pi-web-sync", []);
+  }
+
   // Forward non-command user messages to web app (if connected)
   pi.on("input", async (event, ctx) => {
     if (event.source === "extension") return { action: "continue" };
+
+    // Dismiss QR widget on user typing
+    if (event.text.trim()) {
+      dismissQrWidget(ctx.ui);
+    }
 
     if (client) {
       client.send({
@@ -232,10 +277,15 @@ export default function (pi: ExtensionAPI) {
 
   // Cleanup on shutdown
   pi.on("session_shutdown", async (_event, ctx) => {
+    if (qrTimeout !== null) {
+      clearTimeout(qrTimeout);
+      qrTimeout = null;
+    }
     client?.disconnect();
     client = null;
     sessionId = null;
     assistantBuffer = "";
+    ctx?.ui?.setWidget?.("pi-web-sync", []);
     ctx?.ui?.setStatus?.("pi-web-sync", "");
   });
 }
