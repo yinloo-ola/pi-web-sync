@@ -50,23 +50,23 @@ cleanly when the user disconnects or quits pi.
 - [Stop swallowing errors: surface config and sync failures](0007-error-visibility.md) — four silent `catch {}` blocks replaced: config parse warns with file+error, sync_response warns, wire-message and QR render log at debug; `[pi-web-sync]` prefix convention established.
 - [Shared types package + dead code cleanup](0008-shared-types-dead-code.md) — extension/types.ts is now the single source of truth for RelayMessage/MessageType; webapp imports from it; clearMessages removed; sessionId prop already gone.
 - [Standardize logging across all three packages](0009-standardize-logging.md) — `[pi-web-sync]` prefix everywhere; level discipline (warn=actionable, debug=noise, error=genuine, log=lifecycle-only); stray `console.log` in App.tsx removed; noted production DO has zero logging (verification-pass candidate).
+- [Verification pass: exercise the destination criteria](0010-verification-pass.md) — ran the system end-to-end (real relay + real `RelayClient` under jiti + real webapp in Chromium). Zombie detection, single-tab, clean shutdown, and reconnect+pi-leg buffering all PASS. Three gaps graduated: webapp doesn't handle `sync_response` (0011), webapp input locked during outage makes buffering UI-unreachable (0012), production DO has zero logging (0013). Destination not yet reached.
 
 ## Not yet specified
 
 <!-- fog: in-scope decisions not yet sharp enough to ticket -->
 
 <!-- fog cleared: DO hibernation dissolved (finding lives in ticket 0006's
-     resolution); observability graduated into ticket 0009. -->
+     resolution); observability graduated into ticket 0009; the
+     verification-driven fog (incl. the DO-logging question) graduated into
+     tickets 0011-0013 via the 0010 verification pass. -->
 
-- **Verification-driven fog.** Exercised by [Verification pass: exercise the
-  destination criteria](0010-verification-pass.md). One gap is already visible
-  from code reading: the production Cloudflare DO (`relay/src/index.ts`) has
-  *zero* logging, so a self-hoster running the production relay has no
-  visibility — unlike the dev relay. Whether to add DO logging (and in what
-  form — `console.log` shows in `wrangler tail`) depends on whether self-hosters
-  actually deploy the DO vs. the dev relay, which the pass evaluates. Anything
-  the pass finds graduates immediately as a sharp ticket; if all four criteria
-  pass, the destination is reached and the effort closes.
+The verification pass (ticket 0010) cleared the fog ahead of it: the way to the
+destination is now visible modulo the three open tickets it graduated
+(0011-0013). No new fog surfaced — the remaining work is sharp. 0011 and 0012
+both touch the webapp's disconnect-survival path (history recovery and
+send-during-outage respectively) and should be coordinated when implemented,
+but neither blocks the other.
 
 ## Out of scope
 

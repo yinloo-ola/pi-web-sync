@@ -4,8 +4,8 @@ title: "Verification pass: exercise the destination criteria"
 type: task
 parent: 0001
 blocked_by: []
-assigned: null
-status: open
+assigned: yinlootan
+status: closed
 ---
 
 ## Question
@@ -85,3 +85,34 @@ evidence. Capture a markdown report as a linked asset.
   the effort.
 - The observability finding is either resolved (sufficient) or graduates a
   ticket (insufficient).
+
+## Resolution
+
+Verification report: [docs/plans/verification-pass-0010.md](../../docs/plans/verification-pass-0010.md).
+
+Exercised the destination criteria as a running system (real dev relay + the
+real `RelayClient` under jiti + real webapp in Chromium via `agent-browser`).
+
+**Pass:** zombie detection (criterion 2 — half-open detected in ~40 s via
+missed pong, recovers on resume); single browser tab (criterion 3 — second tab
+rejected 4002, no reconnect-loop, stale slot replaced after close); clean
+shutdown (criterion 4 — no auto-reconnect, relay socket closed, no leaked
+timers at 40 s, relay sees code-1000 close); and the reconnect + pi-leg
+buffering half of criterion 1 (brief outage, buffered message flushed through).
+
+**Fail / gaps — three tickets graduated:**
+
+- [Handle `sync_response` in the webapp to recover history](0011-handle-sync-response-webapp.md)
+  — the webapp sends `sync_request` but has zero handling for the
+  `sync_response` reply; history recovery is broken (criterion 1 sub-fail).
+- [Webapp input locked during outage](0012-webapp-input-locked-during-outage.md)
+  — `Chat.tsx` disables the input while not `connected`, so the partysocket
+  buffering (ticket 0002) is unreachable from the UI; users can't send during
+  an outage (criterion 1 sub-fail).
+- [Add logging to the production Durable Object relay](0013-add-logging-production-do.md)
+  — `packages/relay/src/index.ts` has zero logging; production self-hosters
+  get no `wrangler tail` visibility (criterion 5 gap; graduated from fog).
+
+**Verdict:** destination **not yet reached** — criterion 1's history-recovery
+sub-criterion and the webapp buffering UX are open, and the production DO is a
+black box. The effort stays open for 0011–0013.
