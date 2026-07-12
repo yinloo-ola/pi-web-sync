@@ -52,7 +52,7 @@ export class SessionDO implements DurableObject {
     // reconnect-loop against the relay. (A half-open zombie — no close frame —
     // still looks OPEN until TCP times out; ticket 0006's heartbeat closes it.)
     if (clientType === "web" && isOpen(this.web)) {
-      console.log(`[pi-web-sync] web rejected for session ${sessionId} — duplicate tab`);
+      console.warn(`[pi-web-sync] web rejected for session ${sessionId} — duplicate tab`);
       server.close(CLOSE_DUPLICATE_WEB, "Session already has an active browser");
       return new Response(null, { status: 101, webSocket: client });
     }
@@ -127,11 +127,11 @@ export class SessionDO implements DurableObject {
       }
       if (clientType === "pi") this.pi = null;
       else this.web = null;
-      console.log(`[pi-web-sync] ${clientType} disconnected from session ${sessionId} (code=${event.code})`);
+      console.log(`[pi-web-sync] ${clientType} disconnected from session ${sessionId} (code=${event.code}, reason=${event.reason})`);
     });
 
-    server.addEventListener("error", () => {
-      console.error(`[pi-web-sync] ${clientType} error in session ${sessionId}`);
+    server.addEventListener("error", (event: Event) => {
+      console.error(`[pi-web-sync] ${clientType} error in session ${sessionId}:`, event);
       if (clientType === "pi") this.pi = null;
       else this.web = null;
     });

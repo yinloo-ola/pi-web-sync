@@ -67,15 +67,22 @@ production).
 | Event | Level | Example output |
 |---|---|---|
 | Client connects | `log` | `pi connected to session test-sess` |
-| Client disconnects | `log` | `web disconnected from session test-sess (code=1005)` |
-| Duplicate web tab rejected | `log` | `web rejected for session dup-sess — duplicate tab` |
+| Client disconnects | `log` | `web disconnected from session test-sess (code=1005, reason=)` |
+| Duplicate web tab rejected | `warn` | `web rejected for session dup-sess — duplicate tab` |
 | Message forwarded | `debug` | `forwarded 108 bytes: pi → web` |
 | No paired client | `debug` | `no paired client for pi in session test-sess` |
-| Socket error | `error` | `pi error in session test-sess` |
+| Socket error | `error` | `pi error in session test-sess: [Event]` |
 
 **Structural change:** `sessionId` extraction moved to the top of `fetch()`
 (was inline after the store block) so it's available for every log line. The
-close handler now captures `CloseEvent.code` for the disconnect log.
+close handler now captures `CloseEvent.code` + `.reason` for the disconnect
+log. The error handler captures the `Event` and passes it to `console.error`
+(the Workers runtime does not provide `.message` on WebSocket error events like
+Node's `ws` library does).
+
+**Intentional difference from the dev relay:** the dev relay's connect log
+includes `(${sessions.size} active sessions)` — omitted here because each DO
+instance is one session, with no global session map to count from.
 
 **Verification (live, under `wrangler dev --local --port 8799`):**
 - Connected pi + web clients, sent a message, disconnected both → all five
