@@ -32,6 +32,13 @@ ticket 0009's resolution.
   runtime-exercised; the zero-logging finding is code-confirmed. If adding
   logging, also exercise the DO locally (`wrangler dev`) to confirm the logs
   appear.
+- **Runtime-confirmed (pass 0010b):** ran the production DO under `wrangler dev`
+  and exercised every transport criterion (see
+  [verification-do-0010b](../../docs/plans/verification-do-0010b.md)). `wrangler
+  tail` showed only HTTP-level fetch logs (`GET /session/... 101`) and **zero**
+  application output from the DO — confirming the black-box finding live, not
+  just by code reading. (Pass 0010b also confirmed the DO is transport-parity
+  with the dev relay on all other criteria — no DO-specific bug.)
 
 **Scope note:** this is the production-DO observability gap that graduated from
 the map's "Not yet specified" fog. It is the one ticket from the observability

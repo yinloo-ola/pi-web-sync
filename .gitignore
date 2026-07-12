@@ -27,3 +27,4 @@ package-lock.json
 
 # Scratch verification artifacts (PIDs, logs, screenshots, ad-hoc harnesses)
 .scratch/verify/
+.scratch/verify-do/

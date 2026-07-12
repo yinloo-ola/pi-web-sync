@@ -51,6 +51,7 @@ cleanly when the user disconnects or quits pi.
 - [Shared types package + dead code cleanup](0008-shared-types-dead-code.md) — extension/types.ts is now the single source of truth for RelayMessage/MessageType; webapp imports from it; clearMessages removed; sessionId prop already gone.
 - [Standardize logging across all three packages](0009-standardize-logging.md) — `[pi-web-sync]` prefix everywhere; level discipline (warn=actionable, debug=noise, error=genuine, log=lifecycle-only); stray `console.log` in App.tsx removed; noted production DO has zero logging (verification-pass candidate).
 - [Verification pass: exercise the destination criteria](0010-verification-pass.md) — ran the system end-to-end (real relay + real `RelayClient` under jiti + real webapp in Chromium). Zombie detection, single-tab, clean shutdown, and reconnect+pi-leg buffering all PASS. Three gaps graduated: webapp doesn't handle `sync_response` (0011), webapp input locked during outage makes buffering UI-unreachable (0012), production DO has zero logging (0013). Destination not yet reached.
+- [Verification pass 0010b: exercise the production Durable Object](../../docs/plans/verification-do-0010b.md) — ran the production Worker + `SessionDO` under `wrangler dev` against the real `RelayClient`. Transport-parity with the dev relay on every criterion (heartbeat, single-tab, clean shutdown, live forwarding, reconnect) — **no DO-specific bug**. Confirmed live that criterion 5 still fails for the DO (zero `wrangler tail` output), reinforcing 0013.
 
 ## Not yet specified
 
