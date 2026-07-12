@@ -4,8 +4,8 @@ title: "Webapp input locked during outage — decide whether to allow sending-wh
 type: task
 parent: 0001
 blocked_by: []
-assigned: null
-status: open
+assigned: yinlootan
+status: closed
 ---
 
 ## Question
@@ -49,3 +49,36 @@ it buffer — but that only works if the input is enabled.
   and flush on reconnect, with UI affordance; add a test.
 - If "keep locked": close this ticket with the rationale and note whether ticket
   0002's buffering should be revisited.
+
+## Resolution
+
+**Decision: keep the input locked.** The webapp will continue disabling the
+message input whenever the relay is not `connected` (or pi is `disconnected`).
+Users cannot send during an outage; the partysocket buffering added in ticket
+0002 is intentionally **not exposed** to the UI.
+
+**Rationale:** the preference is to prevent users from composing messages that
+might not deliver, rather than surface a buffered-send UX that could confuse
+(pending messages with no guarantee of delivery). The current `canSend` formula
+(`connectionState === "connected" && piStatus !== "disconnected"`) is correct
+as-is — no code change needed.
+
+**Ticket 0002's buffering should NOT be revisited.** The `send()` implementation
+in `useRelay.ts` (always hand to partysocket, no `readyState` guard) remains
+correct and is kept as-is:
+
+- It protects against the race window where the connection drops between the UI
+  rendering `canSend = true` and the actual `ws.send()` call. Guarding on
+  `readyState` there would reintroduce the silent-drop bug 0002 fixed.
+- `maxEnqueuedMessages: 100` in the reconnect config is harmless — partysocket
+  uses it internally as a safety valve.
+- The buffering costs nothing; removing it would add risk without benefit.
+
+**Disconnect-survival destination is still met.** The pi-leg→webapp direction
+buffers and flushes on reconnect (verified PASS in ticket 0010). The
+webapp→pi-leg direction does not attempt to send during an outage by design —
+the input is locked — so no messages are lost (there are none to lose). History
+recovers via `sync_response` on reconnect (ticket 0011). The
+"survives network disconnects without losing messages" criterion holds:
+messages already in the pipeline survive; the user simply can't originate new
+ones mid-outage, which is the conscious UX choice.

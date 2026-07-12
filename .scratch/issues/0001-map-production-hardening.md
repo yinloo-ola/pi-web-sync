@@ -53,6 +53,7 @@ cleanly when the user disconnects or quits pi.
 - [Verification pass: exercise the destination criteria](0010-verification-pass.md) — ran the system end-to-end (real relay + real `RelayClient` under jiti + real webapp in Chromium). Zombie detection, single-tab, clean shutdown, and reconnect+pi-leg buffering all PASS. Three gaps graduated: webapp doesn't handle `sync_response` (0011), webapp input locked during outage makes buffering UI-unreachable (0012), production DO has zero logging (0013). Destination not yet reached.
 - [Verification pass 0010b: exercise the production Durable Object](../../docs/plans/verification-do-0010b.md) — ran the production Worker + `SessionDO` under `wrangler dev` against the real `RelayClient`. Transport-parity with the dev relay on every criterion (heartbeat, single-tab, clean shutdown, live forwarding, reconnect) — **no DO-specific bug**. Confirmed live that criterion 5 still fails for the DO (zero `wrangler tail` output), reinforcing 0013.
 - [Handle sync_response in the webapp to recover history](0011-handle-sync-response-webapp.md) — App.tsx now consumes `sync_response.payload.messages` via a new `mergeMessages` (de-dup by id, sort by timestamp); fresh-open and reconnect both recover history. 5 new tests, all pass.
+- [Webapp input locked during outage — keep it locked](0012-webapp-input-locked-during-outage.md) — decided NOT to expose partysocket's send-buffering via the UI; input stays disabled until `connected` + pi present. 0002's buffering kept as a race-safety net (not dead code to remove). Disconnect-survival still met: pi→webapp buffers+flushes, webapp→pi simply doesn't send mid-outage; history recovers via `sync_response` (0011).
 
 ## Not yet specified
 
@@ -63,12 +64,10 @@ cleanly when the user disconnects or quits pi.
      verification-driven fog (incl. the DO-logging question) graduated into
      tickets 0011-0013 via the 0010 verification pass. -->
 
-The verification pass (ticket 0010) cleared the fog ahead of it: the way to the
-destination is now visible modulo the remaining open tickets (0012-0013). No new
-fog surfaced — the remaining work is sharp. 0011 (sync_response handling) is
-done; 0012 (webapp input locked during outage) is the other half of the
-disconnect-survival path and can now be implemented knowing the mergeMessages
-infrastructure from 0011 is available.
+The verification pass (ticket 0010) cleared the fog ahead of it. The way to the
+destination is now visible modulo one remaining open ticket: **0013** (production
+DO logging). No new fog surfaced across 0011–0012. Once 0013 closes, all
+verification gaps are addressed and the destination should be reached.
 
 ## Out of scope
 
