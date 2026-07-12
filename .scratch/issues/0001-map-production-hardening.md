@@ -5,7 +5,7 @@ type: map
 parent: null
 blocked_by: []
 assigned: null
-status: open
+status: closed
 ---
 
 # pi-web-sync production hardening
@@ -54,6 +54,7 @@ cleanly when the user disconnects or quits pi.
 - [Verification pass 0010b: exercise the production Durable Object](../../docs/plans/verification-do-0010b.md) — ran the production Worker + `SessionDO` under `wrangler dev` against the real `RelayClient`. Transport-parity with the dev relay on every criterion (heartbeat, single-tab, clean shutdown, live forwarding, reconnect) — **no DO-specific bug**. Confirmed live that criterion 5 still fails for the DO (zero `wrangler tail` output), reinforcing 0013.
 - [Handle sync_response in the webapp to recover history](0011-handle-sync-response-webapp.md) — App.tsx now consumes `sync_response.payload.messages` via a new `mergeMessages` (de-dup by id, sort by timestamp); fresh-open and reconnect both recover history. 5 new tests, all pass.
 - [Webapp input locked during outage — keep it locked](0012-webapp-input-locked-during-outage.md) — decided NOT to expose partysocket's send-buffering via the UI; input stays disabled until `connected` + pi present. 0002's buffering kept as a race-safety net (not dead code to remove). Disconnect-survival still met: pi→webapp buffers+flushes, webapp→pi simply doesn't send mid-outage; history recovers via `sync_response` (0011).
+- [Add logging to the production Durable Object relay](0013-add-logging-production-do.md) — `SessionDO` now logs connect/disconnect (session id + close code), duplicate-tab rejection, forwarding (debug), no-paired-client (debug), and errors — mirroring the dev relay's discipline with `[pi-web-sync]` prefix. Verified live under `wrangler dev`; README notes `wrangler tail` for relay visibility.
 
 ## Not yet specified
 
@@ -64,10 +65,12 @@ cleanly when the user disconnects or quits pi.
      verification-driven fog (incl. the DO-logging question) graduated into
      tickets 0011-0013 via the 0010 verification pass. -->
 
-The verification pass (ticket 0010) cleared the fog ahead of it. The way to the
-destination is now visible modulo one remaining open ticket: **0013** (production
-DO logging). No new fog surfaced across 0011–0012. Once 0013 closes, all
-verification gaps are addressed and the destination should be reached.
+**Destination reached.** All verification gaps from the verification pass
+(0010) are addressed. Every destination criterion is met: disconnect survival
+(pi→webapp buffering+flush ✓, history recovery via sync_response ✓, webapp→pi
+consciously locked by decision 0012 ✓), zombie detection ✓, single browser tab
+✓, clean shutdown ✓, observability (dev relay + production DO both logged ✓).
+No fog remains; the map is closed.
 
 ## Out of scope
 

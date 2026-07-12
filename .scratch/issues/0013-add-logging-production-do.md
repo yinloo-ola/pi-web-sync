@@ -4,8 +4,8 @@ title: "Add logging to the production Durable Object relay"
 type: task
 parent: 0001
 blocked_by: []
-assigned: null
-status: open
+assigned: yinlootan
+status: closed
 ---
 
 ## Question
@@ -54,3 +54,41 @@ extension/webapp surface connection state through their UIs (not graduated).
 - Verified via `wrangler dev` that the logs appear in `wrangler tail`.
 - A note added to the README's self-host section that `wrangler tail` gives relay
   visibility.
+
+## Resolution
+
+Added logging to `packages/relay/src/index.ts` (`SessionDO`), mirroring the dev
+relay's discipline from ticket 0009. Verified live under `wrangler dev` that
+every log site appears in the console (which is what `wrangler tail` streams in
+production).
+
+**Logging sites added (all with `[pi-web-sync]` prefix):**
+
+| Event | Level | Example output |
+|---|---|---|
+| Client connects | `log` | `pi connected to session test-sess` |
+| Client disconnects | `log` | `web disconnected from session test-sess (code=1005)` |
+| Duplicate web tab rejected | `log` | `web rejected for session dup-sess — duplicate tab` |
+| Message forwarded | `debug` | `forwarded 108 bytes: pi → web` |
+| No paired client | `debug` | `no paired client for pi in session test-sess` |
+| Socket error | `error` | `pi error in session test-sess` |
+
+**Structural change:** `sessionId` extraction moved to the top of `fetch()`
+(was inline after the store block) so it's available for every log line. The
+close handler now captures `CloseEvent.code` for the disconnect log.
+
+**Verification (live, under `wrangler dev --local --port 8799`):**
+- Connected pi + web clients, sent a message, disconnected both → all five
+  primary log sites appeared (`connected`, `forwarded … bytes`, `disconnected
+  (code=…)`).
+- Connected two web clients → `web rejected for session dup-sess — duplicate
+  tab` appeared, second client closed with code 4002.
+- `tsc --noEmit` clean; 7/7 existing relay tests pass (dev relay logging
+  unchanged).
+
+**README:** added a note in the self-host → Relay → Production section that
+`wrangler tail` streams relay logs with the `[pi-web-sync]` prefix.
+
+**Done-when criteria met:** DO logs connect/disconnect (session id + close
+code) ✓, forwarding activity at debug ✓, errors ✓, `[pi-web-sync]` prefix +
+level conventions from 0009 ✓, verified via `wrangler dev` ✓, README note ✓.

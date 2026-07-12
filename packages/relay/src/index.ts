@@ -34,6 +34,7 @@ export class SessionDO implements DurableObject {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const clientType = url.searchParams.get("client");
+    const sessionId = url.pathname.split("/").pop() ?? "";
 
     if (!clientType || !["pi", "web"].includes(clientType)) {
       return new Response("Missing ?client=pi or ?client=web", { status: 400 });
@@ -51,6 +52,7 @@ export class SessionDO implements DurableObject {
     // reconnect-loop against the relay. (A half-open zombie — no close frame —
     // still looks OPEN until TCP times out; ticket 0006's heartbeat closes it.)
     if (clientType === "web" && isOpen(this.web)) {
+      console.log(`[pi-web-sync] web rejected for session ${sessionId} — duplicate tab`);
       server.close(CLOSE_DUPLICATE_WEB, "Session already has an active browser");
       return new Response(null, { status: 101, webSocket: client });
     }
@@ -63,10 +65,10 @@ export class SessionDO implements DurableObject {
       this.web?.close();
       this.web = server;
     }
+    console.log(`[pi-web-sync] ${clientType} connected to session ${sessionId}`);
 
     // Notify the new client about the other peer's status
     const other = clientType === "pi" ? this.web : this.pi;
-    const sessionId = url.pathname.split("/").pop() ?? "";
     if (isOpen(other)) {
       server.send(JSON.stringify({
         type: "peer_connected",
@@ -107,11 +109,14 @@ export class SessionDO implements DurableObject {
       const other = clientType === "pi" ? this.web : this.pi;
       if (isOpen(other)) {
         other.send(data);
+        console.debug(`[pi-web-sync] forwarded ${data.length} bytes: ${clientType} → ${clientType === "pi" ? "web" : "pi"}`);
+      } else {
+        console.debug(`[pi-web-sync] no paired client for ${clientType} in session ${sessionId}`);
       }
     });
 
     // On disconnect, notify the other peer
-    server.addEventListener("close", () => {
+    server.addEventListener("close", (event: CloseEvent) => {
       const other = clientType === "pi" ? this.web : this.pi;
       if (isOpen(other)) {
         other.send(JSON.stringify({
@@ -122,9 +127,11 @@ export class SessionDO implements DurableObject {
       }
       if (clientType === "pi") this.pi = null;
       else this.web = null;
+      console.log(`[pi-web-sync] ${clientType} disconnected from session ${sessionId} (code=${event.code})`);
     });
 
     server.addEventListener("error", () => {
+      console.error(`[pi-web-sync] ${clientType} error in session ${sessionId}`);
       if (clientType === "pi") this.pi = null;
       else this.web = null;
     });

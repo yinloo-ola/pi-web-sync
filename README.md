@@ -114,6 +114,8 @@ npx wrangler deploy
 
 > Durable Objects are required for production — they maintain WebSocket state across Worker requests. Requires a [Workers Paid plan](https://developers.cloudflare.com/workers/platform/pricing/) ($5+/mo).
 
+> **Observability:** `npx wrangler tail` streams relay logs (connect/disconnect, forwarding at debug, errors) with the `[pi-web-sync]` prefix — useful when debugging connection issues on a deployed relay.
+
 ### Web app
 
 **Local development:**
