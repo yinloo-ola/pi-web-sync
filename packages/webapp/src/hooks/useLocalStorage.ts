@@ -7,6 +7,8 @@ const STORAGE_PREFIX = "pi-web-sync:";
 export function useLocalStorage(sessionId: string): {
   messages: ChatMessage[];
   addMessage: (msg: ChatMessage) => void;
+  /** Merge an array of messages, de-duping by id, sorting by timestamp, and persisting. */
+  mergeMessages: (msgs: ChatMessage[]) => void;
 } {
   const key = `${STORAGE_PREFIX}${sessionId}`;
 
@@ -41,5 +43,20 @@ export function useLocalStorage(sessionId: string): {
     [persist],
   );
 
-  return { messages, addMessage };
+  const mergeMessages = useCallback(
+    (incoming: ChatMessage[]) => {
+      if (incoming.length === 0) return;
+      setMessages((prev) => {
+        const seen = new Set(prev.map((m) => m.id));
+        const additions = incoming.filter((m) => !seen.has(m.id));
+        if (additions.length === 0) return prev;
+        const next = [...prev, ...additions].sort((a, b) => a.timestamp - b.timestamp);
+        persist(next);
+        return next;
+      });
+    },
+    [persist],
+  );
+
+  return { messages, addMessage, mergeMessages };
 }

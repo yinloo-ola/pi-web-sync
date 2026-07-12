@@ -205,4 +205,46 @@ describe("heartbeat", () => {
 
     unmount();
   });
+
+  it("forwards sync_response to onMessage (not silently dropped)", async () => {
+    const onMessage = vi.fn();
+    const { result, unmount } = renderHook(() =>
+      useRelay("s1", "wss://relay.test", onMessage),
+    );
+
+    await flushConnect();
+    const ws = capturedMock!;
+
+    await act(async () => {
+      ws.readyState = 1;
+      ws.dispatch("open", { type: "open" });
+    });
+    expect(result.current.state).toBe("connected");
+
+    // Relay sends sync_response with conversation history
+    const syncResponse: RelayMessage = {
+      type: "sync_response",
+      sessionId: "s1",
+      payload: {
+        messages: [
+          { role: "user", text: "hello", timestamp: 100 },
+          { role: "assistant", text: "hi", timestamp: 200 },
+        ],
+      },
+    };
+    await act(async () => {
+      ws.dispatch("message", {
+        type: "message",
+        data: JSON.stringify(syncResponse),
+      });
+    });
+
+    expect(onMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "sync_response" }),
+    );
+    const forwarded = onMessage.mock.calls[0][0] as RelayMessage;
+    expect(forwarded.payload.messages).toHaveLength(2);
+
+    unmount();
+  });
 });

@@ -33,7 +33,7 @@ export default function App() {
     );
   }
 
-  const { messages, addMessage } = useLocalStorage(sessionId);
+  const { messages, addMessage, mergeMessages } = useLocalStorage(sessionId);
 
   const handleMessage = useCallback(
     (msg: RelayMessage) => {
@@ -55,9 +55,21 @@ export default function App() {
           text: payload.text,
           timestamp: payload.timestamp,
         });
+      } else if (msg.type === "sync_response") {
+        const { messages: history } = msg.payload as {
+          messages: Array<{ role: "user" | "assistant"; text: string; timestamp: number }>;
+        };
+        mergeMessages(
+          history.map((m) => ({
+            id: `${msg.sessionId}-${m.timestamp}`,
+            role: m.role,
+            text: m.text,
+            timestamp: m.timestamp,
+          })),
+        );
       }
     },
-    [addMessage],
+    [addMessage, mergeMessages],
   );
 
   const { state, piStatus, retryAttempt, send, reconnect } = useRelay(
