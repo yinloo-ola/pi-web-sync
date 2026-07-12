@@ -6,6 +6,9 @@
     "packages/relay",
     "packages/webapp"
   ],
+  "scripts": {
+    "deploy": "npm run deploy --workspace=packages/relay && npm run deploy --workspace=packages/webapp"
+  },
   "dependencies": {
     "pi-web-sync": "^0.2.0"
   }

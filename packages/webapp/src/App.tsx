@@ -5,11 +5,7 @@ import { useLocalStorage } from "./hooks/useLocalStorage";
 import type { ChatMessage } from "./types";
 import type { RelayMessage } from "../../extension/types";
 
-const RELAY_URL = import.meta.env.VITE_RELAY_URL;
-
-if (!RELAY_URL) {
-  console.warn("[pi-web-sync] VITE_RELAY_URL not set — web app will not connect to relay");
-}
+const RELAY_URL = new URLSearchParams(window.location.search).get("relay") ?? "";
 
 /** Extract session ID from URL path: /session/<id>. */
 function getSessionId(): string {
@@ -22,13 +18,13 @@ function getSessionId(): string {
 export default function App() {
   const sessionId = getSessionId();
 
-  // Fallback when no session ID is found
-  if (!sessionId) {
+  // Fallback when no session ID or relay URL is found
+  if (!sessionId || !RELAY_URL) {
     return (
       <div style={{ padding: 40, textAlign: "center" }}>
         <h1>pi-web-sync</h1>
-        <p>No session ID found in URL.</p>
-        <p>Use <code>/session/&lt;your-session-id&gt;</code>.</p>
+        {!sessionId && <p>No session ID found in URL.</p>}
+        {!RELAY_URL && <p>No relay configured. Open a share link from pi.</p>}
       </div>
     );
   }

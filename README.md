@@ -134,13 +134,26 @@ npm run build
 npx wrangler pages deploy dist
 ```
 
-Set `VITE_RELAY_URL` to your deployed relay URL.
+No build-time configuration needed — the relay URL travels with each share link as a `?relay=` query parameter.
 
 ### Configure the extension
 
 ```bash
 pi install pi-web-sync
 ```
+
+**Step-by-step:**
+
+1. Deploy the relay — `cd packages/relay && npx wrangler deploy`
+2. Deploy the web app — `cd packages/webapp && npm run build && npx wrangler pages deploy dist`
+3. Create `~/.pi-web-sync.json` with your deployed URLs:
+   ```json
+   {
+     "relayUrl": "wss://your-relay.workers.dev",
+     "webappUrl": "https://your-webapp.pages.dev"
+   }
+   ```
+4. Start a pi session, run `/web-sync`, and open the URL in a browser.
 
 **Config file** (recommended): create a JSON file at one of these locations:
 

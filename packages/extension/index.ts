@@ -60,9 +60,11 @@ function extractText(content: unknown): string {
   return String(content ?? "");
 }
 
-/** Build the web app URL for a given session ID. */
-function getSessionUrl(sessionId: string, webappUrl: string): string {
-  return `${webappUrl}/session/${sessionId}`;
+/** Build the web app URL for a given session ID, including the relay URL as a query param. */
+function getSessionUrl(sessionId: string, webappUrl: string, relayUrl: string): string {
+  const url = new URL(`/session/${sessionId}`, webappUrl);
+  url.searchParams.set("relay", relayUrl);
+  return url.toString();
 }
 
 /** Pi extension that syncs the current session with a web app via WebSocket relay. */
@@ -80,7 +82,7 @@ export default function (pi: ExtensionAPI) {
     sessionId = sid;
 
     try {
-      const sessionUrl = getSessionUrl(sid, webappUrl);
+      const sessionUrl = getSessionUrl(sid, webappUrl, relayUrl);
       client = new RelayClient(relayUrl, sessionId);
 
       // Connection state drives the footer (connected URL, reconnect progress,
@@ -228,10 +230,10 @@ export default function (pi: ExtensionAPI) {
           ctx.ui.notify("Web sync: no webapp URL configured", "error");
           return;
         }
-        await showQrCode(ctx.ui, getSessionUrl(sessionId, webappUrl));
+        await showQrCode(ctx.ui, getSessionUrl(sessionId, webappUrl, relayUrl));
       } else if (args.startsWith("status")) {
         if (client && sessionId) {
-          ctx.ui.notify(`Web sync: connected — ${getSessionUrl(sessionId, webappUrl)}`, "info");
+          ctx.ui.notify(`Web sync: connected — ${getSessionUrl(sessionId, webappUrl, relayUrl)}`, "info");
         } else {
           ctx.ui.notify("Web sync: not connected", "info");
         }
