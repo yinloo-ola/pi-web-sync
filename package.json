@@ -2,6 +2,7 @@
   "name": "pi-web-sync-monorepo",
   "private": true,
   "workspaces": [
+    "packages/protocol",
     "packages/extension",
     "packages/relay",
     "packages/webapp"

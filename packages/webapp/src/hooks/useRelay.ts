@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { WebSocket as ReconnectingWebSocket } from "partysocket";
 import type { Options as ReconnectOptions } from "partysocket/ws";
-import type { RelayMessage } from "../../../extension/types";
+import type { RelayMessage } from "pi-web-sync-protocol";
+import { CLOSE_DUPLICATE_WEB } from "pi-web-sync-protocol";
 
 /** Connection state for the relay WebSocket. */
 export type RelayState =
@@ -26,13 +27,7 @@ const MIN_UPTIME_MS = 5000;
 const PING_INTERVAL_MS = 30_000;
 const PONG_TIMEOUT_MS = 10_000;
 
-/**
- * Relay close code for "another browser tab already holds this session"
- * (see packages/relay/src/close-codes.ts). Recognized here so the web app shows
- * a message instead of reconnect-looping against the relay. A shared constants
- * package (ticket 0008) will eventually remove this duplication.
- */
-const CLOSE_DUPLICATE_WEB = 4002;
+
 
 const RECONNECT_OPTIONS: ReconnectOptions = {
   maxRetries: MAX_RETRIES,

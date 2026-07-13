@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useRelay } from "./useRelay";
-import type { RelayMessage } from "../../../extension/types";
+import type { RelayMessage } from "pi-web-sync-protocol";
 
 /**
  * Captures the underlying WebSocket that partysocket wraps, so the test can

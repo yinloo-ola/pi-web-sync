@@ -3,7 +3,7 @@ import { Chat } from "./components/Chat";
 import { useRelay } from "./hooks/useRelay";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import type { ChatMessage } from "./types";
-import type { RelayMessage } from "../../extension/types";
+import type { RelayMessage } from "pi-web-sync-protocol";
 
 const RELAY_URL = new URLSearchParams(window.location.search).get("relay") ?? "";
 

@@ -1,19 +1,15 @@
 /**
- * WebSocket close codes and connection-liveness helpers shared by both relay
- * implementations (`relay-server.ts` dev relay, `index.ts` Durable Object).
+ * Connection-liveness helpers for the relay package.
  *
- * Close codes use the private-use range 4000–4999. The web app recognizes
- * {@link CLOSE_DUPLICATE_WEB} to avoid retrying forever (see useRelay's
- * `shouldReconnectOnClose`). If you change a code here, update the mirrored
- * constant in `packages/webapp/src/hooks/useRelay.ts` — a shared types package
- * (ticket 0008) will eventually remove this duplication.
+ * Close codes (`CLOSE_DUPLICATE_WEB`, `CLOSE_INVALID_REQUEST`) now live in
+ * `pi-web-sync-protocol` — the single source of truth for the wire contract.
+ * Import them from there.
+ *
+ * `isOpen` and `OPEN` are transport-liveness helpers, not wire contract; they
+ * stay here.
  */
 
-/** Malformed request: bad session path or missing/invalid `?client=`. */
-export const CLOSE_INVALID_REQUEST = 4001;
-
-/** A second *web* client tried to join a session that already has a live one. */
-export const CLOSE_DUPLICATE_WEB = 4002;
+export { CLOSE_DUPLICATE_WEB, CLOSE_INVALID_REQUEST } from "pi-web-sync-protocol";
 
 /**
  * readyState value for an open WebSocket. Centralized so neither relay leans on

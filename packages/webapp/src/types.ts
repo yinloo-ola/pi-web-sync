@@ -1,6 +1,6 @@
 /**
  * Web-app-specific types. Relay types (RelayMessage, MessageType, payloads)
- * live in packages/extension/types.ts — import from there to avoid drift.
+ * live in pi-web-sync-protocol — import from there to avoid drift.
  */
 
 export interface ChatMessage {
