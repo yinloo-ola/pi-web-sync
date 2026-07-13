@@ -104,6 +104,10 @@ export default function (pi: ExtensionAPI) {
         if (msg.type === "user_message") {
           const payload = msg.payload as { text: string };
           pi.sendUserMessage(payload.text);
+        } else if (msg.type === "pi_command") {
+          const payload = msg.payload as { command: string };
+          // Route pi commands to pi's command handler
+          pi.sendUserMessage(`/${payload.command}`);
         }
       });
 

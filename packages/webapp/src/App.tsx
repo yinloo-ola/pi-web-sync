@@ -100,10 +100,31 @@ export default function App() {
     [sessionId, send, addMessage],
   );
 
+  const handleSendCommand = useCallback(
+    (command: string) => {
+      // Show the command as a user message for visibility
+      const text = `/${command}`;
+      addMessage({
+        id: `${sessionId}-${Date.now()}`,
+        role: "user",
+        text,
+        timestamp: Date.now(),
+      });
+      // Send as pi_command via relay
+      send({
+        type: "pi_command",
+        sessionId,
+        payload: { command },
+      });
+    },
+    [sessionId, send, addMessage],
+  );
+
   return (
     <Chat
       messages={messages}
       onSendMessage={handleSend}
+      onSendCommand={handleSendCommand}
       onClearChat={clearMessages}
       connectionState={state}
       retryAttempt={retryAttempt}

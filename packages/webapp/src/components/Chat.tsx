@@ -1,12 +1,14 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import type { ChatMessage } from "../types";
 import { MessageBubble } from "./MessageBubble";
+import { SlashMenu } from "./SlashMenu";
 import type { RelayState } from "../hooks/useRelay";
 import type { PiStatus } from "../hooks/useRelay";
 
 interface ChatProps {
   messages: ChatMessage[];
   onSendMessage: (text: string) => void;
+  onSendCommand: (command: string) => void;
   onClearChat: () => void;
   connectionState: RelayState;
   /** Reconnect attempt (1-based) while `connectionState === “reconnecting”`. */
@@ -41,6 +43,7 @@ const PI_STATUS: Record<PiStatus, StatusDisplay> = {
 export function Chat({
   messages,
   onSendMessage,
+  onSendCommand,
   onClearChat,
   connectionState,
   retryAttempt,
@@ -50,8 +53,10 @@ export function Chat({
 }: ChatProps) {
   const [input, setInput] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const piStatusLabel = PI_STATUS[piStatus];
   const canSend = connectionState === "connected" && piStatus !== "disconnected" && !sessionEnded;
+  const showSlashMenu = canSend && input.startsWith("/");
 
   const relayStatus: StatusDisplay =
     connectionState === "reconnecting"
@@ -73,10 +78,32 @@ export function Chat({
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
+  const handleSlashSelect = useCallback(
+    (command: string) => {
+      onSendCommand(command);
+      setInput("");
+      inputRef.current?.focus();
+    },
+    [onSendCommand],
+  );
+
+  const handleSlashDismiss = useCallback(() => {
+    inputRef.current?.focus();
+  }, []);
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const text = input.trim();
     if (!text) return;
+    // If input starts with /, treat it as a command
+    if (text.startsWith("/")) {
+      const cmd = text.slice(1).split(" ")[0];
+      if (cmd) {
+        onSendCommand(cmd);
+        setInput("");
+        return;
+      }
+    }
     onSendMessage(text);
     setInput("");
   }
@@ -208,30 +235,44 @@ export function Chat({
       </div>
 
       {/* Input */}
-      <form
-        onSubmit={handleSubmit}
+      <div
         className="chat-input"
         style={{
-          display: "flex",
-          gap: 8,
+          position: "relative",
           borderTop: "1px solid #E5E5EA",
         }}
       >
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={canSend ? "Type a message…" : "Waiting for relay connection…"}
-          disabled={!canSend}
+        {showSlashMenu && (
+          <SlashMenu
+            input={input}
+            onSelect={handleSlashSelect}
+            onDismiss={handleSlashDismiss}
+          />
+        )}
+        <form
+          onSubmit={handleSubmit}
           style={{
-            flex: 1,
-            padding: "10px 14px",
-            borderRadius: 20,
-            border: "1px solid #E5E5EA",
-            fontSize: 16,
-            outline: "none",
+            display: "flex",
+            gap: 8,
+            padding: "12px 16px",
           }}
-        />
+        >
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={canSend ? "Type a message… (or / for commands)" : "Waiting for relay connection…"}
+            disabled={!canSend}
+            style={{
+              flex: 1,
+              padding: "10px 14px",
+              borderRadius: 20,
+              border: "1px solid #E5E5EA",
+              fontSize: 16,
+              outline: "none",
+            }}
+          />
         <button
           type="submit"
           disabled={!input.trim() || !canSend}
@@ -248,7 +289,8 @@ export function Chat({
         >
           Send
         </button>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }
