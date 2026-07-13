@@ -235,7 +235,7 @@ export function useRelay(
 
         onMessageRef.current(msg);
       } catch (e) {
-        console.debug("[pi-web-sync] failed to parse message:", e instanceof Error ? e.message : e);
+        console.warn("[pi-web-sync] failed to parse message:", e instanceof Error ? e.message : e);
       }
     });
 

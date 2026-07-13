@@ -89,7 +89,6 @@ export default function (pi: ExtensionAPI) {
     // Send available models
     try {
       const allModels = ctx.modelRegistry.getAll();
-      console.debug(`[pi-web-sync] found ${allModels.length} models`);
       const models = allModels.map((m) => ({
         id: m.id,
         provider: m.provider,
@@ -100,15 +99,13 @@ export default function (pi: ExtensionAPI) {
         sessionId,
         payload: { models },
       });
-      console.debug(`[pi-web-sync] sent models_list with ${models.length} models`);
     } catch (err) {
-      console.debug("[pi-web-sync] failed to send models_list:", err instanceof Error ? err.message : err);
+      console.warn("[pi-web-sync] failed to send models_list:", err instanceof Error ? err.message : err);
     }
 
     // Send available skills
     try {
       const allCommands = pi.getCommands();
-      console.debug(`[pi-web-sync] found ${allCommands.length} commands`);
       const skills = allCommands
         .filter((cmd) => cmd.source === "skill")
         .map((cmd) => ({
@@ -116,14 +113,13 @@ export default function (pi: ExtensionAPI) {
           description: cmd.description,
           source: cmd.source,
         }));
-      console.debug(`[pi-web-sync] found ${skills.length} skills`);
       client.send({
         type: "skills_list",
         sessionId,
         payload: { skills },
       });
     } catch (err) {
-      console.debug("[pi-web-sync] failed to send skills_list:", err instanceof Error ? err.message : err);
+      console.warn("[pi-web-sync] failed to send skills_list:", err instanceof Error ? err.message : err);
     }
   }
 
@@ -156,7 +152,7 @@ export default function (pi: ExtensionAPI) {
           pi.sendUserMessage(payload.text);
         } else if (msg.type === "pi_command") {
           const payload = msg.payload as { command: PiCommand };
-          console.debug("[pi-web-sync] received pi_command:", payload.command.kind);
+          console.info("[pi-web-sync] received pi_command:", payload.command.kind);
           await handlePiCommand(pi, ctx, payload.command, client!, sessionId!);
         }
       });
@@ -229,7 +225,7 @@ export default function (pi: ExtensionAPI) {
         qrTimeout = null;
       }, 10_000);
     } catch (err) {
-      console.debug("[pi-web-sync] QR code render failed:", err instanceof Error ? err.message : err);
+      console.warn("[pi-web-sync] QR code render failed:", err instanceof Error ? err.message : err);
       ui.notify(`Web sync: ${url}`, "info");
     }
   }

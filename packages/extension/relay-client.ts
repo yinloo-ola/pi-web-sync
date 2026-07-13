@@ -105,7 +105,7 @@ export class RelayClient {
           this.messageHandler?.(msg);
         }
       } catch (err) {
-        console.debug("[pi-web-sync] ignoring malformed wire message:", err instanceof Error ? err.message : err);
+        console.warn("[pi-web-sync] ignoring malformed wire message:", err instanceof Error ? err.message : err);
       }
     });
 
