@@ -4,8 +4,8 @@ title: "Send prompt templates from the webapp"
 type: task
 parent: 0043
 blocked_by: []
-assigned: null
-status: open
+assigned: agent
+status: closed
 triage: ready-for-agent
 ---
 
@@ -17,7 +17,11 @@ How can users invoke pi prompt templates (`/name`) from the webapp without switc
 
 ## Resolution
 
-(TBD on close)
+- Added `prompts_list` message type and `PromptInfo`/`PromptsListPayload` to `packages/protocol/src/index.ts`.
+- Created `packages/extension/prompts.ts` that loads `.md` prompt templates from `~/.pi/agent/prompts` and `<cwd>/.pi/prompts` (project prompts gated by trust), parses frontmatter, and expands `/name [args]` using the same `$1`, `$@`, `${N:-default}`, `${@:N}`, `${@:N:L}` substitution rules as pi.
+- Extended `packages/extension/index.ts` to send `prompts_list` on connect and on every `sync_request`, and to expand prompt templates before calling `pi.sendUserMessage` for `user_message` inputs.
+- Extended `useRelay.ts`, `Chat.tsx`, and `SlashMenu.tsx` to receive and display prompt templates in a `/prompt` slash-menu submenu; selecting a prompt fills the input with `/<name> `.
+- Added `packages/extension/prompts.test.ts`, updated `useRelay.test.ts`, and added prompt-submenu tests to `SlashMenu.test.tsx`.
 
 ## Problem
 

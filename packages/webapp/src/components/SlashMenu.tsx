@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { ModelInfo, SkillInfo } from "../hooks/useRelay";
+import type { ModelInfo, SkillInfo, PromptInfo } from "../hooks/useRelay";
 
 export interface SlashCommand {
   name: string;
@@ -10,6 +10,7 @@ export interface SlashCommand {
 export const PI_COMMANDS: SlashCommand[] = [
   { name: "model", description: "Switch the active model" },
   { name: "skill", description: "Run a skill by name" },
+  { name: "prompt", description: "Send a prompt template" },
   { name: "compact", description: "Compact the conversation context" },
 ];
 
@@ -20,6 +21,8 @@ interface SlashMenuProps {
   availableModels: ModelInfo[];
   /** Available skills from pi's command registry. */
   availableSkills: SkillInfo[];
+  /** Available prompt templates from pi. */
+  availablePrompts: PromptInfo[];
   /** Called when a command should be sent immediately (e.g., model switch). */
   onSelect: (command: string) => void;
   /** Called when a command should be filled in the input (e.g., skill with instructions). */
@@ -29,10 +32,10 @@ interface SlashMenuProps {
 }
 
 /** Dropdown menu shown when the user types `/` in the input. */
-export function SlashMenu({ input, availableModels, availableSkills, onSelect, onFillInput, onDismiss }: SlashMenuProps) {
+export function SlashMenu({ input, availableModels, availableSkills, availablePrompts, onSelect, onFillInput, onDismiss }: SlashMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const activeIndexRef = useRef(0);
-  const [activeSubmenu, setActiveSubmenu] = useState<"model" | "skill" | null>(null);
+  const [activeSubmenu, setActiveSubmenu] = useState<"model" | "skill" | "prompt" | null>(null);
 
   // Parse the input: "/model" or "/model <query>"
   const parts = input.slice(1).split(" ");
@@ -45,12 +48,14 @@ export function SlashMenu({ input, availableModels, availableSkills, onSelect, o
   // Reset active index and submenu when input changes
   useEffect(() => {
     activeIndexRef.current = 0;
-    // Show submenu if user typed "/model " or "/skill " (with space)
+    // Show submenu if user typed "/model ", "/skill ", or "/prompt " (with space)
     if (commandQuery === "model" && parts.length > 1) {
       setActiveSubmenu("model");
     } else if (commandQuery === "skill" && parts.length > 1) {
       setActiveSubmenu("skill");
-    } else if (commandQuery !== "model" && commandQuery !== "skill") {
+    } else if (commandQuery === "prompt" && parts.length > 1) {
+      setActiveSubmenu("prompt");
+    } else if (commandQuery !== "model" && commandQuery !== "skill" && commandQuery !== "prompt") {
       setActiveSubmenu(null);
     }
   }, [input]);
@@ -81,6 +86,13 @@ export function SlashMenu({ input, availableModels, availableSkills, onSelect, o
       s.description?.toLowerCase().includes(submenuQuery),
   );
 
+  // Filter prompts by query
+  const filteredPrompts = availablePrompts.filter(
+    (p) =>
+      p.name.toLowerCase().includes(submenuQuery) ||
+      p.description.toLowerCase().includes(submenuQuery),
+  );
+
   // Keyboard navigation
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Escape") {
@@ -95,7 +107,13 @@ export function SlashMenu({ input, availableModels, availableSkills, onSelect, o
     }
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      const items = activeSubmenu === "model" ? filteredModels : activeSubmenu === "skill" ? filteredSkills : filtered;
+      const items = activeSubmenu === "model"
+        ? filteredModels
+        : activeSubmenu === "skill"
+          ? filteredSkills
+          : activeSubmenu === "prompt"
+            ? filteredPrompts
+            : filtered;
       activeIndexRef.current = Math.min(activeIndexRef.current + 1, items.length - 1);
       const menuItems = menuRef.current?.querySelectorAll("[data-slash-item]");
       menuItems?.[activeIndexRef.current]?.scrollIntoView?.({ block: "nearest" });
@@ -120,6 +138,11 @@ export function SlashMenu({ input, availableModels, availableSkills, onSelect, o
           const skill = filteredSkills[activeIndexRef.current];
           onFillInput(`/skill:${skill.name} `);
         }
+      } else if (activeSubmenu === "prompt") {
+        if (filteredPrompts.length > 0) {
+          const prompt = filteredPrompts[activeIndexRef.current];
+          onFillInput(`/${prompt.name} `);
+        }
       } else {
         if (filtered.length > 0) {
           const cmd = filtered[activeIndexRef.current].name;
@@ -128,6 +151,9 @@ export function SlashMenu({ input, availableModels, availableSkills, onSelect, o
             activeIndexRef.current = 0;
           } else if (cmd === "skill") {
             setActiveSubmenu("skill");
+            activeIndexRef.current = 0;
+          } else if (cmd === "prompt") {
+            setActiveSubmenu("prompt");
             activeIndexRef.current = 0;
           } else {
             onSelect(cmd);
@@ -244,6 +270,62 @@ export function SlashMenu({ input, availableModels, availableSkills, onSelect, o
     );
   }
 
+  // Prompt submenu
+  if (activeSubmenu === "prompt") {
+    return (
+      <div
+        ref={menuRef}
+        className="slash-menu"
+        data-testid="slash-menu"
+        onKeyDown={handleKeyDown}
+      >
+        <div
+          style={{
+            padding: "8px 16px",
+            borderBottom: "1px solid #F2F2F7",
+            fontSize: 12,
+            color: "#8E8E93",
+            cursor: "pointer",
+          }}
+          onClick={() => setActiveSubmenu(null)}
+        >
+          ← Back to commands
+        </div>
+        {filteredPrompts.length === 0 ? (
+          <div style={{ padding: "10px 16px", color: "#8E8E93", fontSize: 13 }}>
+            No prompts available
+          </div>
+        ) : (
+          filteredPrompts.map((prompt, i) => (
+            <div
+              key={prompt.name}
+              data-slash-item
+              data-testid={`slash-prompt-${prompt.name}`}
+              onClick={() => onFillInput(`/${prompt.name} `)}
+              style={{
+                padding: "10px 16px",
+                cursor: "pointer",
+                backgroundColor: i === activeIndexRef.current ? "#F2F2F7" : "transparent",
+                borderBottom: i < filteredPrompts.length - 1 ? "1px solid #F2F2F7" : "none",
+              }}
+              onMouseEnter={() => {
+                activeIndexRef.current = i;
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 500 }}>{prompt.name}</div>
+              {prompt.argumentHint && (
+                <div style={{ fontSize: 12, color: "#8E8E93", fontFamily: "monospace" }}>
+                  {prompt.argumentHint}
+                </div>
+              )}
+              <div style={{ fontSize: 12, color: "#8E8E93" }}>{prompt.description}</div>
+            </div>
+          ))
+        )}
+      </div>
+    );
+  }
+
   // Main command menu
   if (filtered.length === 0) return null;
 
@@ -266,6 +348,9 @@ export function SlashMenu({ input, availableModels, availableSkills, onSelect, o
             } else if (cmd.name === "skill") {
               setActiveSubmenu("skill");
               activeIndexRef.current = 0;
+            } else if (cmd.name === "prompt") {
+              setActiveSubmenu("prompt");
+              activeIndexRef.current = 0;
             } else {
               onSelect(cmd.name);
             }
@@ -286,7 +371,9 @@ export function SlashMenu({ input, availableModels, availableSkills, onSelect, o
               ? `${cmd.description} (${availableModels.length} available)`
               : cmd.name === "skill" && availableSkills.length > 0
                 ? `${cmd.description} (${availableSkills.length} available)`
-                : cmd.description}
+                : cmd.name === "prompt" && availablePrompts.length > 0
+                  ? `${cmd.description} (${availablePrompts.length} available)`
+                  : cmd.description}
           </div>
         </div>
       ))}

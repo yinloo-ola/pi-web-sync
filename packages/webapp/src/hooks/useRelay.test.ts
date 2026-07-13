@@ -248,6 +248,50 @@ describe("heartbeat", () => {
     unmount();
   });
 
+  describe("discovery messages", () => {
+    it("updates availablePrompts when prompts_list is received", async () => {
+      const onMessage = vi.fn();
+      const { result, unmount } = renderHook(() =>
+        useRelay("s1", "wss://relay.test", onMessage),
+      );
+
+      await flushConnect();
+      const ws = capturedMock!;
+
+      await act(async () => {
+        ws.readyState = 1;
+        ws.dispatch("open", { type: "open" });
+      });
+      expect(result.current.availablePrompts).toHaveLength(0);
+
+      await act(async () => {
+        ws.dispatch("message", {
+          type: "message",
+          data: JSON.stringify({
+            type: "prompts_list",
+            sessionId: "s1",
+            payload: {
+              prompts: [
+                { name: "review", description: "Review changes" },
+                { name: "summarize", description: "Summarize", argumentHint: "<topic>" },
+              ],
+            },
+          }),
+        });
+      });
+
+      expect(result.current.availablePrompts).toHaveLength(2);
+      expect(result.current.availablePrompts[0].name).toBe("review");
+      expect(result.current.availablePrompts[1].argumentHint).toBe("<topic>");
+      // prompts_list is not forwarded to the app
+      expect(onMessage).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: "prompts_list" }),
+      );
+
+      unmount();
+    });
+  });
+
   describe("session_ended", () => {
     it("sets sessionEnded to true when session_ended message is received", async () => {
       vi.useFakeTimers();

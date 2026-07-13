@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { WebSocket as ReconnectingWebSocket } from "partysocket";
 import type { Options as ReconnectOptions } from "partysocket/ws";
-import type { RelayMessage } from "pi-web-sync-protocol";
+import type { PromptInfo, RelayMessage } from "pi-web-sync-protocol";
 import { CLOSE_DUPLICATE_WEB, buildSessionWsUrl } from "pi-web-sync-protocol";
 
 /** Connection state for the relay WebSocket. */
@@ -54,6 +54,8 @@ export interface SkillInfo {
   source: string;
 }
 
+export type { PromptInfo };
+
 /** Hook that manages the relay WebSocket connection with auto-reconnect. */
 export function useRelay(
   sessionId: string,
@@ -68,6 +70,8 @@ export function useRelay(
   availableModels: ModelInfo[];
   /** Available skills from pi's command registry. */
   availableSkills: SkillInfo[];
+  /** Available prompt templates from pi. */
+  availablePrompts: PromptInfo[];
   /** Current reconnect attempt (1-based) while `state === "reconnecting"`; 0 otherwise. */
   retryAttempt: number;
   send: (msg: RelayMessage) => void;
@@ -78,6 +82,7 @@ export function useRelay(
   const [sessionEnded, setSessionEnded] = useState(false);
   const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
   const [availableSkills, setAvailableSkills] = useState<SkillInfo[]>([]);
+  const [availablePrompts, setAvailablePrompts] = useState<PromptInfo[]>([]);
   const [retryAttempt, setRetryAttempt] = useState(0);
 
   const wsRef = useRef<ReconnectingWebSocket | null>(null);
@@ -227,6 +232,14 @@ export function useRelay(
           return; // not forwarded to the app
         }
 
+        // Prompt templates list from pi
+        if (msg.type === "prompts_list") {
+          const payload = msg.payload as { prompts: PromptInfo[] };
+          console.debug("[pi-web-sync] received prompts_list:", payload.prompts?.length ?? 0, "prompts");
+          setAvailablePrompts(payload.prompts ?? []);
+          return; // not forwarded to the app
+        }
+
         // sync_response means pi is alive — cancel the stale timer
         if (msg.type === "sync_response" && staleTimerRef.current) {
           clearTimeout(staleTimerRef.current);
@@ -313,5 +326,5 @@ export function useRelay(
   // Keep the heartbeat's reference to reconnect current across renders.
   reconnectRef.current = reconnect;
 
-  return { state, piStatus, sessionEnded, availableModels, availableSkills, retryAttempt, send, reconnect };
+  return { state, piStatus, sessionEnded, availableModels, availableSkills, availablePrompts, retryAttempt, send, reconnect };
 }

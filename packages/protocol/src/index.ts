@@ -30,6 +30,7 @@ export type MessageType =
   | "pi_command"
   | "models_list"
   | "skills_list"
+  | "prompts_list"
   | "session_ended";
 
 // ---------------------------------------------------------------------------
@@ -89,6 +90,17 @@ export interface ModelsListPayload {
 export interface SkillsListPayload {
   /** Available skills from pi's command registry. */
   skills: Array<{ name: string; description?: string; source: string }>;
+}
+
+export interface PromptInfo {
+  name: string;
+  description: string;
+  argumentHint?: string;
+}
+
+export interface PromptsListPayload {
+  /** Available prompt templates from pi. */
+  prompts: PromptInfo[];
 }
 
 export interface SessionEndedPayload {

@@ -2,12 +2,14 @@ import { readFileSync, existsSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import type { AutocompleteItem } from "@earendil-works/pi-tui";
 import QRCode from "qrcode";
 import { RelayClient, MAX_RETRIES, type ConnectionState } from "./relay-client";
 import type { RelayMessage } from "./types";
 import type { PiCommand } from "pi-web-sync-protocol";
 import { handlePiCommand } from "./command-handler";
+import { expandPromptTemplate, loadPromptTemplates, type PromptTemplate } from "./prompts";
 
 interface WebSyncConfig {
   relayUrl: string;
@@ -78,6 +80,30 @@ export default function (pi: ExtensionAPI) {
   let assistantBuffer = "";
   let relayUrl = RELAY_URL;
   let webappUrl = WEBAPP_URL;
+  let promptTemplates: PromptTemplate[] = [];
+
+  /** Send prompt templates to the web app. */
+  function sendPromptsList(
+    ctx: ExtensionCommandContext,
+    client: RelayClient,
+    sessionId: string,
+  ): void {
+    try {
+      promptTemplates = loadPromptTemplates(ctx.cwd, getAgentDir(), ctx.isProjectTrusted());
+      const prompts = promptTemplates.map((t) => ({
+        name: t.name,
+        description: t.description,
+        ...(t.argumentHint ? { argumentHint: t.argumentHint } : {}),
+      }));
+      client.send({
+        type: "prompts_list",
+        sessionId,
+        payload: { prompts },
+      });
+    } catch (err) {
+      console.warn("[pi-web-sync] failed to send prompts_list:", err instanceof Error ? err.message : err);
+    }
+  }
 
   /** Send models and skills to the web app. */
   function sendModelsAndSkills(
@@ -149,7 +175,8 @@ export default function (pi: ExtensionAPI) {
       client.onMessage(async (msg: RelayMessage) => {
         if (msg.type === "user_message") {
           const payload = msg.payload as { text: string };
-          pi.sendUserMessage(payload.text);
+          const expanded = expandPromptTemplate(payload.text, promptTemplates);
+          pi.sendUserMessage(expanded);
         } else if (msg.type === "pi_command") {
           const payload = msg.payload as { command: PiCommand };
           console.info("[pi-web-sync] received pi_command:", payload.command.kind);
@@ -181,14 +208,18 @@ export default function (pi: ExtensionAPI) {
             payload: { messages },
           });
 
-          // Send models and skills after sync_response (webapp is ready)
+          // Send models, skills, and prompts after sync_response (webapp is ready)
           sendModelsAndSkills(pi, ctx, client!, sessionId!);
+          sendPromptsList(ctx, client!, sessionId!);
         } catch (err) {
           console.warn("[pi-web-sync] sync_response failed:", err instanceof Error ? err.message : err);
         }
       });
 
       await client.connect();
+
+      // Send available prompt templates to any already-connected web client.
+      sendPromptsList(ctx, client, sessionId);
 
       // Show QR code for the session URL (auto-dismisses after 10s)
       showQrCode(ctx.ui, sessionUrl);

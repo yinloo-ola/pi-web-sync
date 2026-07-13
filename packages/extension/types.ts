@@ -18,6 +18,8 @@ export type {
   PiCommandPayload,
   ModelsListPayload,
   SkillsListPayload,
+  PromptInfo,
+  PromptsListPayload,
   SessionEndedPayload,
 } from "pi-web-sync-protocol";
 
