@@ -21,6 +21,8 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
           borderRadius: "12px",
           backgroundColor: isUser ? "#007AFF" : "#E5E5EA",
           color: isUser ? "white" : "black",
+          overflowWrap: "break-word",
+          maxWidth: "100%",
         }}
       >
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.text}</ReactMarkdown>

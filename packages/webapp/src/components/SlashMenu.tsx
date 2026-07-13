@@ -98,14 +98,14 @@ export function SlashMenu({ input, availableModels, availableSkills, onSelect, o
       const items = activeSubmenu === "model" ? filteredModels : activeSubmenu === "skill" ? filteredSkills : filtered;
       activeIndexRef.current = Math.min(activeIndexRef.current + 1, items.length - 1);
       const menuItems = menuRef.current?.querySelectorAll("[data-slash-item]");
-      menuItems?.[activeIndexRef.current]?.scrollIntoView({ block: "nearest" });
+      menuItems?.[activeIndexRef.current]?.scrollIntoView?.({ block: "nearest" });
       return;
     }
     if (e.key === "ArrowUp") {
       e.preventDefault();
       activeIndexRef.current = Math.max(activeIndexRef.current - 1, 0);
       const menuItems = menuRef.current?.querySelectorAll("[data-slash-item]");
-      menuItems?.[activeIndexRef.current]?.scrollIntoView({ block: "nearest" });
+      menuItems?.[activeIndexRef.current]?.scrollIntoView?.({ block: "nearest" });
       return;
     }
     if (e.key === "Enter") {

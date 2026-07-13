@@ -53,12 +53,42 @@
 /* Message bubbles: wider on mobile for readability */
 .message-bubble {
   max-width: 85%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
 }
 
 @media (min-width: 768px) {
   .message-bubble {
     max-width: 80%;
   }
+}
+
+/* Overflow-safe markdown children */
+.message-bubble table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.message-bubble th,
+.message-bubble td {
+  padding: 6px 8px;
+  border: 1px solid #C7C7CC;
+}
+
+.message-bubble pre {
+  overflow-x: auto;
+  max-width: 100%;
+  padding: 10px;
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+}
+
+.message-bubble img {
+  max-width: 100%;
+  height: auto;
 }
 
 /* Slash menu: full width on mobile */
