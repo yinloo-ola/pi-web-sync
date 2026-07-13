@@ -22,6 +22,9 @@ Thumbs.db
 # Logs
 *.log
 
+# Test coverage reports (generated on demand)
+coverage/
+
 # Lock files (not published as an app)
 package-lock.json
 
