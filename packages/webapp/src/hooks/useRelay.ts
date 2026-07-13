@@ -219,6 +219,7 @@ export function useRelay(
         // Models list from pi's registry
         if (msg.type === "models_list") {
           const payload = msg.payload as { models: Array<{ id: string; provider: string; name: string }> };
+          console.debug("[pi-web-sync] received models_list:", payload.models?.length ?? 0, "models");
           setAvailableModels(payload.models ?? []);
           return; // not forwarded to the app
         }
@@ -226,6 +227,7 @@ export function useRelay(
         // Skills list from pi's command registry
         if (msg.type === "skills_list") {
           const payload = msg.payload as { skills: Array<{ name: string; description?: string; source: string }> };
+          console.debug("[pi-web-sync] received skills_list:", payload.skills?.length ?? 0, "skills");
           setAvailableSkills(payload.skills ?? []);
           return; // not forwarded to the app
         }
