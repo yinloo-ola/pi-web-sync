@@ -120,6 +120,54 @@ export default function (pi: ExtensionAPI) {
     }
   }
 
+  /** Send models and skills to the web app. */
+  function sendModelsAndSkills(
+    pi: ExtensionAPI,
+    ctx: ExtensionCommandContext,
+    client: RelayClient,
+    sessionId: string,
+  ): void {
+    // Send available models
+    try {
+      const allModels = ctx.modelRegistry.getAll();
+      console.debug(`[pi-web-sync] found ${allModels.length} models`);
+      const models = allModels.map((m) => ({
+        id: m.id,
+        provider: m.provider,
+        name: m.name ?? m.id,
+      }));
+      client.send({
+        type: "models_list",
+        sessionId,
+        payload: { models },
+      });
+      console.debug(`[pi-web-sync] sent models_list with ${models.length} models`);
+    } catch (err) {
+      console.debug("[pi-web-sync] failed to send models_list:", err instanceof Error ? err.message : err);
+    }
+
+    // Send available skills
+    try {
+      const allCommands = pi.getCommands();
+      console.debug(`[pi-web-sync] found ${allCommands.length} commands`);
+      const skills = allCommands
+        .filter((cmd) => cmd.source === "skill")
+        .map((cmd) => ({
+          name: cmd.name,
+          description: cmd.description,
+          source: cmd.source,
+        }));
+      console.debug(`[pi-web-sync] found ${skills.length} skills`);
+      client.send({
+        type: "skills_list",
+        sessionId,
+        payload: { skills },
+      });
+    } catch (err) {
+      console.debug("[pi-web-sync] failed to send skills_list:", err instanceof Error ? err.message : err);
+    }
+  }
+
   /** Attempt to connect to the relay. Returns true on success. */
   async function connectRelay(ctx: ExtensionCommandContext): Promise<boolean> {
     const sid = ctx.sessionManager.getSessionId();
@@ -176,58 +224,15 @@ export default function (pi: ExtensionAPI) {
             sessionId: sessionId!,
             payload: { messages },
           });
+
+          // Send models and skills after sync_response (webapp is ready)
+          sendModelsAndSkills(pi, ctx, client!, sessionId!);
         } catch (err) {
           console.warn("[pi-web-sync] sync_response failed:", err instanceof Error ? err.message : err);
         }
       });
 
       await client.connect();
-
-      // Send available models to the web app
-      try {
-        const allModels = ctx.modelRegistry.getAll();
-        console.debug(`[pi-web-sync] found ${allModels.length} models`);
-        const models = allModels.map((m) => ({
-          id: m.id,
-          provider: m.provider,
-          name: m.name ?? m.id,
-        }));
-        client!.send({
-          type: "models_list",
-          sessionId: sessionId!,
-          payload: { models },
-        });
-        console.debug(`[pi-web-sync] sent models_list with ${models.length} models`);
-      } catch (err) {
-        console.debug("[pi-web-sync] failed to send models_list:", err instanceof Error ? err.message : err);
-      }
-
-      // Send available skills to the web app
-      try {
-        const allCommands = pi.getCommands();
-        console.debug(`[pi-web-sync] found ${allCommands.length} commands`);
-        // Log command sources for debugging
-        const sources = new Map<string, number>();
-        for (const cmd of allCommands) {
-          sources.set(cmd.source, (sources.get(cmd.source) ?? 0) + 1);
-        }
-        console.debug(`[pi-web-sync] command sources:`, Object.fromEntries(sources));
-        const skills = allCommands
-          .filter((cmd) => cmd.source === "skill")
-          .map((cmd) => ({
-            name: cmd.name,
-            description: cmd.description,
-            source: cmd.source,
-          }));
-        console.debug(`[pi-web-sync] found ${skills.length} skills`);
-        client!.send({
-          type: "skills_list",
-          sessionId: sessionId!,
-          payload: { skills },
-        });
-      } catch (err) {
-        console.debug("[pi-web-sync] failed to send skills_list:", err instanceof Error ? err.message : err);
-      }
 
       // Show QR code for the session URL (auto-dismisses after 10s)
       showQrCode(ctx.ui, sessionUrl);
