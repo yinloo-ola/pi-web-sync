@@ -12,7 +12,10 @@ export type MessageType =
   | "peer_connected"
   | "peer_disconnected"
   | "ping"
-  | "pong";
+  | "pong"
+  | "pi_command"
+  | "models_list"
+  | "session_ended";
 
 export interface RelayMessage {
   type: MessageType;
@@ -48,4 +51,19 @@ export interface SyncResponsePayload {
 
 export interface PeerDisconnectedPayload {
   peer: "pi" | "web";
+}
+
+export interface PiCommandPayload {
+  /** The full command string (e.g., "model anthropic/claude-sonnet-4-5", "skill:research", "compact"). */
+  command: string;
+}
+
+export interface ModelsListPayload {
+  /** Available models from pi's registry. */
+  models: Array<{ id: string; provider: string; name: string }>;
+}
+
+export interface SessionEndedPayload {
+  /** Why the session ended. */
+  reason: "new_session" | "shutdown";
 }

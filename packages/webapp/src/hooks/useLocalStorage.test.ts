@@ -106,4 +106,63 @@ describe("useLocalStorage", () => {
       expect(result.current.messages).toHaveLength(1);
     });
   });
+
+  describe("clearMessages", () => {
+    it("clears all messages from state and localStorage", () => {
+      const { result } = renderHook(() => useLocalStorage("s1"));
+
+      act(() => {
+        result.current.addMessage(makeMsg("s1-100", "user", "hello", 100));
+      });
+      act(() => {
+        result.current.addMessage(makeMsg("s1-200", "assistant", "hi", 200));
+      });
+      expect(result.current.messages).toHaveLength(2);
+
+      act(() => {
+        result.current.clearMessages();
+      });
+
+      expect(result.current.messages).toHaveLength(0);
+      expect(localStorage.getItem("pi-web-sync:s1")).toBeNull();
+    });
+  });
+
+  describe("TTL expiry", () => {
+    it("clears messages older than 1 week on load", () => {
+      const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
+      const oldTimestamp = Date.now() - oneWeekMs - 1000;
+
+      // Seed localStorage with old messages
+      localStorage.setItem(
+        "pi-web-sync:s1",
+        JSON.stringify([makeMsg("s1-100", "user", "old message", oldTimestamp)]),
+      );
+
+      const { result } = renderHook(() => useLocalStorage("s1"));
+
+      // Messages should be cleared due to TTL
+      expect(result.current.messages).toHaveLength(0);
+      expect(localStorage.getItem("pi-web-sync:s1")).toBeNull();
+    });
+
+    it("keeps messages younger than 1 week", () => {
+      const recentTimestamp = Date.now() - 1000; // 1 second ago
+
+      localStorage.setItem(
+        "pi-web-sync:s1",
+        JSON.stringify([makeMsg("s1-100", "user", "recent message", recentTimestamp)]),
+      );
+
+      const { result } = renderHook(() => useLocalStorage("s1"));
+
+      expect(result.current.messages).toHaveLength(1);
+      expect(result.current.messages[0].text).toBe("recent message");
+    });
+
+    it("keeps empty localStorage as empty", () => {
+      const { result } = renderHook(() => useLocalStorage("s1"));
+      expect(result.current.messages).toHaveLength(0);
+    });
+  });
 });

@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Chat } from "./components/Chat";
 import { useRelay } from "./hooks/useRelay";
 import { useLocalStorage } from "./hooks/useLocalStorage";
@@ -29,7 +29,7 @@ export default function App() {
     );
   }
 
-  const { messages, addMessage, mergeMessages } = useLocalStorage(sessionId);
+  const { messages, addMessage, mergeMessages, clearMessages } = useLocalStorage(sessionId);
 
   const handleMessage = useCallback(
     (msg: RelayMessage) => {
@@ -68,11 +68,20 @@ export default function App() {
     [addMessage, mergeMessages],
   );
 
-  const { state, piStatus, retryAttempt, send, reconnect } = useRelay(
+  const { state, piStatus, sessionEnded, retryAttempt, send, reconnect } = useRelay(
     sessionId,
     RELAY_URL,
     handleMessage,
   );
+
+  // Clear localStorage when session ends
+  const prevSessionEnded = useRef(sessionEnded);
+  useEffect(() => {
+    if (sessionEnded && !prevSessionEnded.current) {
+      clearMessages();
+    }
+    prevSessionEnded.current = sessionEnded;
+  }, [sessionEnded, clearMessages]);
 
   const handleSend = useCallback(
     (text: string) => {
@@ -95,9 +104,11 @@ export default function App() {
     <Chat
       messages={messages}
       onSendMessage={handleSend}
+      onClearChat={clearMessages}
       connectionState={state}
       retryAttempt={retryAttempt}
       piStatus={piStatus}
+      sessionEnded={sessionEnded}
       onReconnect={reconnect}
     />
   );

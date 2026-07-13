@@ -55,6 +55,8 @@ export function useRelay(
 ): {
   state: RelayState;
   piStatus: PiStatus;
+  /** Whether the session has ended (pi sent session_ended or no pi peer within 5s). */
+  sessionEnded: boolean;
   /** Current reconnect attempt (1-based) while `state === "reconnecting"`; 0 otherwise. */
   retryAttempt: number;
   send: (msg: RelayMessage) => void;
@@ -62,6 +64,7 @@ export function useRelay(
 } {
   const [state, setState] = useState<RelayState>("connecting");
   const [piStatus, setPiStatus] = useState<PiStatus>("unknown");
+  const [sessionEnded, setSessionEnded] = useState(false);
   const [retryAttempt, setRetryAttempt] = useState(0);
 
   const wsRef = useRef<ReconnectingWebSocket | null>(null);
@@ -86,6 +89,7 @@ export function useRelay(
   const reconnectRef = useRef<() => void>(() => {});
   const intentionalCloseRef = useRef(false);
   const aliveRef = useRef(true);
+  const staleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stopHeartbeat = useCallback(() => {
     if (pingIntervalRef.current) {
@@ -133,6 +137,7 @@ export function useRelay(
     ws.addEventListener("open", () => {
       if (!aliveRef.current) return;
       setState("connected");
+      setSessionEnded(false);
       // Recover full history from pi on every (re)connect.
       ws.send(
         JSON.stringify({ type: "sync_request", sessionId, payload: {} }),
@@ -144,6 +149,14 @@ export function useRelay(
         closeCountRef.current = 0;
         setRetryAttempt(0);
       }, MIN_UPTIME_MS);
+      // Stale URL detection: if no pi peer connects within 5s, the session has ended.
+      if (staleTimerRef.current) clearTimeout(staleTimerRef.current);
+      staleTimerRef.current = setTimeout(() => {
+        // Only mark as ended if we're still connected and pi hasn't connected
+        if (aliveRef.current) {
+          setSessionEnded(true);
+        }
+      }, 5000);
       startHeartbeat();
     });
 
@@ -170,8 +183,25 @@ export function useRelay(
             setPiStatus(
               msg.type === "peer_connected" ? "connected" : "disconnected",
             );
+            // Pi connected — cancel the stale timer
+            if (msg.type === "peer_connected" && staleTimerRef.current) {
+              clearTimeout(staleTimerRef.current);
+              staleTimerRef.current = null;
+            }
           }
           return; // peer-status messages are not forwarded to the app
+        }
+
+        // Session ended — pi started a new session or shut down
+        if (msg.type === "session_ended") {
+          setSessionEnded(true);
+          return; // not forwarded to the app
+        }
+
+        // sync_response means pi is alive — cancel the stale timer
+        if (msg.type === "sync_response" && staleTimerRef.current) {
+          clearTimeout(staleTimerRef.current);
+          staleTimerRef.current = null;
         }
 
         onMessageRef.current(msg);
@@ -214,6 +244,10 @@ export function useRelay(
       intentionalCloseRef.current = true;
       clearStableTimer();
       stopHeartbeat();
+      if (staleTimerRef.current) {
+        clearTimeout(staleTimerRef.current);
+        staleTimerRef.current = null;
+      }
       // Deliberate close: partysocket will NOT auto-reconnect (ticket 0005).
       ws.close();
       wsRef.current = null;
@@ -250,5 +284,5 @@ export function useRelay(
   // Keep the heartbeat's reference to reconnect current across renders.
   reconnectRef.current = reconnect;
 
-  return { state, piStatus, retryAttempt, send, reconnect };
+  return { state, piStatus, sessionEnded, retryAttempt, send, reconnect };
 }

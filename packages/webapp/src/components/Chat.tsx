@@ -7,10 +7,13 @@ import type { PiStatus } from "../hooks/useRelay";
 interface ChatProps {
   messages: ChatMessage[];
   onSendMessage: (text: string) => void;
+  onClearChat: () => void;
   connectionState: RelayState;
-  /** Reconnect attempt (1-based) while `connectionState === "reconnecting"`. */
+  /** Reconnect attempt (1-based) while `connectionState === “reconnecting”`. */
   retryAttempt: number;
   piStatus: PiStatus;
+  /** Whether the session has ended (pi started new session or no pi peer within 5s). */
+  sessionEnded: boolean;
   onReconnect: () => void;
 }
 
@@ -38,15 +41,17 @@ const PI_STATUS: Record<PiStatus, StatusDisplay> = {
 export function Chat({
   messages,
   onSendMessage,
+  onClearChat,
   connectionState,
   retryAttempt,
   piStatus,
+  sessionEnded,
   onReconnect,
 }: ChatProps) {
   const [input, setInput] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
   const piStatusLabel = PI_STATUS[piStatus];
-  const canSend = connectionState === "connected" && piStatus !== "disconnected";
+  const canSend = connectionState === "connected" && piStatus !== "disconnected" && !sessionEnded;
 
   const relayStatus: StatusDisplay =
     connectionState === "reconnecting"
@@ -77,9 +82,10 @@ export function Chat({
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", maxWidth: 720, margin: "0 auto" }}>
+    <div className="chat-container" style={{ display: "flex", flexDirection: "column", height: "100vh", margin: "0 auto" }}>
       {/* Header */}
       <div
+        className="chat-header"
         style={{
           padding: "16px 20px",
           borderBottom: "1px solid #E5E5EA",
@@ -112,6 +118,24 @@ export function Chat({
           />
           <span style={{ fontSize: 13, color: "#8E8E93" }}>{piStatusLabel.text}</span>
         </div>
+        {messages.length > 0 && (
+          <button
+            type="button"
+            onClick={onClearChat}
+            style={{
+              marginLeft: "auto",
+              padding: "4px 12px",
+              borderRadius: 12,
+              border: "1px solid #E5E5EA",
+              backgroundColor: "white",
+              color: "#8E8E93",
+              fontSize: 12,
+              cursor: "pointer",
+            }}
+          >
+            Clear chat
+          </button>
+        )}
       </div>
 
       {/* Connection-failed / duplicate-tab banner with a manual action */}
@@ -146,13 +170,31 @@ export function Chat({
         </div>
       )}
 
+      {/* Session ended banner */}
+      {sessionEnded && (
+        <div
+          style={{
+            padding: "12px 20px",
+            borderBottom: "1px solid #E5E5EA",
+            backgroundColor: "#FFF9E6",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+          <span style={{ fontSize: 14, color: "#8E6B00" }}>
+            Session ended — run <code>/web-sync qr</code> in pi to get a new link
+          </span>
+        </div>
+      )}
+
       {/* Message list */}
       <div
         ref={listRef}
+        className="chat-messages"
         style={{
           flex: 1,
           overflowY: "auto",
-          padding: "16px 20px",
         }}
       >
         {messages.length === 0 && (
@@ -168,10 +210,10 @@ export function Chat({
       {/* Input */}
       <form
         onSubmit={handleSubmit}
+        className="chat-input"
         style={{
           display: "flex",
           gap: 8,
-          padding: "12px 20px",
           borderTop: "1px solid #E5E5EA",
         }}
       >

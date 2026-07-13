@@ -15,8 +15,8 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
       }}
     >
       <div
+        className="message-bubble"
         style={{
-          maxWidth: "80%",
           padding: "12px 16px",
           borderRadius: "12px",
           backgroundColor: isUser ? "#007AFF" : "#E5E5EA",

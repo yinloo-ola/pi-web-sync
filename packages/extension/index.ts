@@ -2,6 +2,7 @@ import { readFileSync, existsSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import type { AutocompleteItem } from "@earendil-works/pi-tui";
 import QRCode from "qrcode";
 import { RelayClient, MAX_RETRIES, type ConnectionState } from "./relay-client";
 import type { RelayMessage } from "./types";
@@ -194,6 +195,12 @@ export default function (pi: ExtensionAPI) {
   // Register /web-sync command (gets auto-complete in pi)
   pi.registerCommand("web-sync", {
     description: "Sync pi session with web app — connect, disconnect, status, or qr",
+    getArgumentCompletions: (prefix: string): AutocompleteItem[] | null => {
+      const subcommands = ["connect", "disconnect", "status", "qr"];
+      const items = subcommands.map((s) => ({ value: s, label: s }));
+      const filtered = items.filter((i) => i.value.startsWith(prefix));
+      return filtered.length > 0 ? filtered : null;
+    },
     handler: async (args, ctx: ExtensionCommandContext) => {
       if (!args || args.startsWith("connect")) {
         // /web-sync or /web-sync connect [relay_url] [webapp_url]
@@ -298,7 +305,17 @@ export default function (pi: ExtensionAPI) {
   });
 
   // Cleanup on shutdown
-  pi.on("session_shutdown", async (_event, ctx) => {
+  pi.on("session_shutdown", async (event, ctx) => {
+    // Notify web app that the session has ended before disconnecting.
+    // Skip for reload — pi will reconnect to the same session shortly.
+    if (client && sessionId && event.reason !== "reload") {
+      const reason = event.reason === "quit" ? "shutdown" : "new_session";
+      client.send({
+        type: "session_ended",
+        sessionId,
+        payload: { reason },
+      });
+    }
     if (qrTimeout !== null) {
       clearTimeout(qrTimeout);
       qrTimeout = null;

@@ -247,4 +247,145 @@ describe("heartbeat", () => {
 
     unmount();
   });
+
+  describe("session_ended", () => {
+    it("sets sessionEnded to true when session_ended message is received", async () => {
+      vi.useFakeTimers();
+      const onMessage = vi.fn();
+      const { result, unmount } = renderHook(() =>
+        useRelay("s1", "wss://relay.test", onMessage),
+      );
+
+      await act(() => vi.advanceTimersByTimeAsync(20));
+      const ws = capturedMock!;
+
+      await act(async () => {
+        ws.readyState = 1;
+        ws.dispatch("open", { type: "open" });
+      });
+      expect(result.current.state).toBe("connected");
+      expect(result.current.sessionEnded).toBe(false);
+
+      // Receive session_ended message
+      await act(async () => {
+        ws.dispatch("message", {
+          type: "message",
+          data: JSON.stringify({
+            type: "session_ended",
+            sessionId: "s1",
+            payload: { reason: "new_session" },
+          }),
+        });
+      });
+
+      expect(result.current.sessionEnded).toBe(true);
+      // session_ended is NOT forwarded to onMessage (it's handled internally)
+      expect(onMessage).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: "session_ended" }),
+      );
+
+      unmount();
+      vi.useRealTimers();
+    });
+
+    it("sets sessionEnded to true when no pi peer connects within 5 seconds (stale URL)", async () => {
+      vi.useFakeTimers();
+      const onMessage = vi.fn();
+      const { result, unmount } = renderHook(() =>
+        useRelay("s1", "wss://relay.test", onMessage),
+      );
+
+      await act(() => vi.advanceTimersByTimeAsync(20));
+      const ws = capturedMock!;
+
+      await act(async () => {
+        ws.readyState = 1;
+        ws.dispatch("open", { type: "open" });
+      });
+      expect(result.current.state).toBe("connected");
+      expect(result.current.sessionEnded).toBe(false);
+
+      // No peer_connected message arrives — advance 5 seconds
+      await act(() => vi.advanceTimersByTimeAsync(5000));
+
+      expect(result.current.sessionEnded).toBe(true);
+
+      unmount();
+      vi.useRealTimers();
+    });
+
+    it("does NOT set sessionEnded if pi peer connects within 5 seconds", async () => {
+      vi.useFakeTimers();
+      const onMessage = vi.fn();
+      const { result, unmount } = renderHook(() =>
+        useRelay("s1", "wss://relay.test", onMessage),
+      );
+
+      await act(() => vi.advanceTimersByTimeAsync(20));
+      const ws = capturedMock!;
+
+      await act(async () => {
+        ws.readyState = 1;
+        ws.dispatch("open", { type: "open" });
+      });
+      expect(result.current.state).toBe("connected");
+
+      // Pi peer connects within 5 seconds
+      await act(async () => {
+        ws.dispatch("message", {
+          type: "message",
+          data: JSON.stringify({
+            type: "peer_connected",
+            sessionId: "s1",
+            payload: { peer: "pi" },
+          }),
+        });
+      });
+
+      expect(result.current.piStatus).toBe("connected");
+
+      // Advance past 5 seconds — sessionEnded should still be false
+      await act(() => vi.advanceTimersByTimeAsync(5000));
+      expect(result.current.sessionEnded).toBe(false);
+
+      unmount();
+      vi.useRealTimers();
+    });
+
+    it("does NOT set sessionEnded if sync_response arrives within 5 seconds", async () => {
+      vi.useFakeTimers();
+      const onMessage = vi.fn();
+      const { result, unmount } = renderHook(() =>
+        useRelay("s1", "wss://relay.test", onMessage),
+      );
+
+      await act(() => vi.advanceTimersByTimeAsync(20));
+      const ws = capturedMock!;
+
+      await act(async () => {
+        ws.readyState = 1;
+        ws.dispatch("open", { type: "open" });
+      });
+      expect(result.current.state).toBe("connected");
+
+      // sync_response arrives within 5 seconds (pi is alive)
+      await act(async () => {
+        ws.dispatch("message", {
+          type: "message",
+          data: JSON.stringify({
+            type: "sync_response",
+            sessionId: "s1",
+            payload: { messages: [] },
+          }),
+        });
+      });
+
+      // Advance past 5 seconds — sessionEnded should still be false
+      await act(() => vi.advanceTimersByTimeAsync(5000));
+      expect(result.current.sessionEnded).toBe(false);
+
+      unmount();
+      vi.useRealTimers();
+    });
+  });
 });
