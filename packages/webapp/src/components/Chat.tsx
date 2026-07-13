@@ -263,6 +263,7 @@ export function Chat({
             input={input}
             availableModels={availableModels}
             availableSkills={availableSkills}
+            onSelect={handleSlashSelect}
             onFillInput={handleFillInput}
             onDismiss={handleSlashDismiss}
           />

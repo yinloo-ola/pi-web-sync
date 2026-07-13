@@ -20,14 +20,16 @@ interface SlashMenuProps {
   availableModels: ModelInfo[];
   /** Available skills from pi's command registry. */
   availableSkills: SkillInfo[];
-  /** Called when a command should be filled in the input (e.g., "model anthropic/claude-sonnet-4-5" or "skill:research"). */
+  /** Called when a command should be sent immediately (e.g., model switch). */
+  onSelect: (command: string) => void;
+  /** Called when a command should be filled in the input (e.g., skill with instructions). */
   onFillInput: (value: string) => void;
   /** Called when the menu should be dismissed. */
   onDismiss: () => void;
 }
 
 /** Dropdown menu shown when the user types `/` in the input. */
-export function SlashMenu({ input, availableModels, availableSkills, onFillInput, onDismiss }: SlashMenuProps) {
+export function SlashMenu({ input, availableModels, availableSkills, onSelect, onFillInput, onDismiss }: SlashMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const activeIndexRef = useRef(0);
   const [activeSubmenu, setActiveSubmenu] = useState<"model" | "skill" | null>(null);
@@ -111,7 +113,7 @@ export function SlashMenu({ input, availableModels, availableSkills, onFillInput
       if (activeSubmenu === "model") {
         if (filteredModels.length > 0) {
           const model = filteredModels[activeIndexRef.current];
-          onFillInput(`/model ${model.provider}/${model.id} `);
+          onSelect(`model ${model.provider}/${model.id}`);
         }
       } else if (activeSubmenu === "skill") {
         if (filteredSkills.length > 0) {
@@ -167,7 +169,7 @@ export function SlashMenu({ input, availableModels, availableSkills, onFillInput
               key={`${model.provider}/${model.id}`}
               data-slash-item
               data-testid={`slash-model-${model.provider}-${model.id}`}
-              onClick={() => onFillInput(`/model ${model.provider}/${model.id} `)}
+              onClick={() => onSelect(`model ${model.provider}/${model.id}`)}
               style={{
                 padding: "10px 16px",
                 cursor: "pointer",

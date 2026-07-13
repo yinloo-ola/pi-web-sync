@@ -66,14 +66,15 @@ describe("SlashMenu", () => {
     expect(container.innerHTML).toBe("");
   });
 
-  it("fills input when model is clicked", () => {
-    const onFillInput = vi.fn();
+  it("sends model command immediately when clicked", () => {
+    const onSelect = vi.fn();
     render(
       <SlashMenu
         input="/"
         availableModels={SAMPLE_MODELS}
         availableSkills={EMPTY_SKILLS}
-        onFillInput={onFillInput}
+        onSelect={onSelect}
+        onFillInput={vi.fn()}
         onDismiss={vi.fn()}
       />,
     );
@@ -81,7 +82,7 @@ describe("SlashMenu", () => {
     fireEvent.click(screen.getByTestId("slash-item-model"));
     fireEvent.click(screen.getByTestId("slash-model-anthropic-claude-sonnet-4-5"));
 
-    expect(onFillInput).toHaveBeenCalledWith("/model anthropic/claude-sonnet-4-5 ");
+    expect(onSelect).toHaveBeenCalledWith("model anthropic/claude-sonnet-4-5");
   });
 
   it("calls onDismiss when Escape is pressed", () => {
@@ -102,13 +103,14 @@ describe("SlashMenu", () => {
   });
 
   it("shows model submenu when pressing Enter on model command", () => {
-    const onFillInput = vi.fn();
+    const onSelect = vi.fn();
     render(
       <SlashMenu
         input="/"
         availableModels={SAMPLE_MODELS}
         availableSkills={EMPTY_SKILLS}
-        onFillInput={onFillInput}
+        onSelect={onSelect}
+        onFillInput={vi.fn()}
         onDismiss={vi.fn()}
       />,
     );
@@ -118,7 +120,7 @@ describe("SlashMenu", () => {
 
     // Should now show model submenu
     expect(screen.getByTestId("slash-model-anthropic-claude-sonnet-4-5")).toBeDefined();
-    expect(onFillInput).not.toHaveBeenCalled();
+    expect(onSelect).not.toHaveBeenCalled();
   });
 
   it("navigates with ArrowDown and ArrowUp", () => {
@@ -128,6 +130,7 @@ describe("SlashMenu", () => {
         input="/"
         availableModels={EMPTY_MODELS}
         availableSkills={EMPTY_SKILLS}
+        onSelect={vi.fn()}
         onFillInput={onFillInput}
         onDismiss={vi.fn()}
       />,
@@ -189,21 +192,22 @@ describe("SlashMenu", () => {
       expect(screen.queryByTestId("slash-model-openai-gpt-4o")).toBeNull();
     });
 
-    it("fills input with model command", () => {
-      const onFillInput = vi.fn();
+    it("sends model command immediately when clicked in submenu", () => {
+      const onSelect = vi.fn();
       render(
         <SlashMenu
           input="/model "
           availableModels={SAMPLE_MODELS}
           availableSkills={EMPTY_SKILLS}
-          onFillInput={onFillInput}
+          onSelect={onSelect}
+          onFillInput={vi.fn()}
           onDismiss={vi.fn()}
         />,
       );
 
       fireEvent.click(screen.getByTestId("slash-model-anthropic-claude-sonnet-4-5"));
 
-      expect(onFillInput).toHaveBeenCalledWith("/model anthropic/claude-sonnet-4-5 ");
+      expect(onSelect).toHaveBeenCalledWith("model anthropic/claude-sonnet-4-5");
     });
 
     it("shows 'No models available' when models list is empty", () => {
@@ -285,13 +289,14 @@ describe("SlashMenu", () => {
       expect(screen.queryByTestId("slash-skill-diagnose")).toBeNull();
     });
 
-    it("fills input with skill command", () => {
+    it("fills input with skill command for appending instructions", () => {
       const onFillInput = vi.fn();
       render(
         <SlashMenu
           input="/skill "
           availableModels={EMPTY_MODELS}
           availableSkills={SAMPLE_SKILLS}
+          onSelect={vi.fn()}
           onFillInput={onFillInput}
           onDismiss={vi.fn()}
         />,
