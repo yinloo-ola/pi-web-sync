@@ -5,7 +5,7 @@ type: map
 parent: null
 blocked_by: []
 assigned: null
-status: open
+status: closed
 ---
 
 # Webapp UX polish and pi commands from browser
