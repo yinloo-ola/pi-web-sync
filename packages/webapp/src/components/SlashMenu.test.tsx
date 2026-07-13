@@ -66,23 +66,22 @@ describe("SlashMenu", () => {
     expect(container.innerHTML).toBe("");
   });
 
-  it("calls onSelect when a command is clicked", () => {
-    const onSelect = vi.fn();
+  it("fills input when model is clicked", () => {
+    const onFillInput = vi.fn();
     render(
       <SlashMenu
         input="/"
-        availableModels={EMPTY_MODELS}
+        availableModels={SAMPLE_MODELS}
         availableSkills={EMPTY_SKILLS}
-        onSelect={onSelect}
+        onFillInput={onFillInput}
         onDismiss={vi.fn()}
       />,
     );
 
     fireEvent.click(screen.getByTestId("slash-item-model"));
+    fireEvent.click(screen.getByTestId("slash-model-anthropic-claude-sonnet-4-5"));
 
-    // Model command should show submenu, not call onSelect
-    expect(screen.getByTestId("slash-menu")).toBeDefined();
-    expect(onSelect).not.toHaveBeenCalled();
+    expect(onFillInput).toHaveBeenCalledWith("/model anthropic/claude-sonnet-4-5 ");
   });
 
   it("calls onDismiss when Escape is pressed", () => {
@@ -103,13 +102,13 @@ describe("SlashMenu", () => {
   });
 
   it("shows model submenu when pressing Enter on model command", () => {
-    const onSelect = vi.fn();
+    const onFillInput = vi.fn();
     render(
       <SlashMenu
         input="/"
         availableModels={SAMPLE_MODELS}
         availableSkills={EMPTY_SKILLS}
-        onSelect={onSelect}
+        onFillInput={onFillInput}
         onDismiss={vi.fn()}
       />,
     );
@@ -119,17 +118,17 @@ describe("SlashMenu", () => {
 
     // Should now show model submenu
     expect(screen.getByTestId("slash-model-anthropic-claude-sonnet-4-5")).toBeDefined();
-    expect(onSelect).not.toHaveBeenCalled();
+    expect(onFillInput).not.toHaveBeenCalled();
   });
 
   it("navigates with ArrowDown and ArrowUp", () => {
-    const onSelect = vi.fn();
+    const onFillInput = vi.fn();
     render(
       <SlashMenu
         input="/"
         availableModels={EMPTY_MODELS}
         availableSkills={EMPTY_SKILLS}
-        onSelect={onSelect}
+        onFillInput={onFillInput}
         onDismiss={vi.fn()}
       />,
     );
@@ -140,7 +139,7 @@ describe("SlashMenu", () => {
 
     // Skill command should show submenu
     expect(screen.getByTestId("slash-menu")).toBeDefined();
-    expect(onSelect).not.toHaveBeenCalled();
+    expect(onFillInput).not.toHaveBeenCalled();
   });
 
   it("is case-insensitive when filtering", () => {
@@ -190,21 +189,21 @@ describe("SlashMenu", () => {
       expect(screen.queryByTestId("slash-model-openai-gpt-4o")).toBeNull();
     });
 
-    it("sends model command with provider/id format", () => {
-      const onSelect = vi.fn();
+    it("fills input with model command", () => {
+      const onFillInput = vi.fn();
       render(
         <SlashMenu
           input="/model "
           availableModels={SAMPLE_MODELS}
           availableSkills={EMPTY_SKILLS}
-          onSelect={onSelect}
+          onFillInput={onFillInput}
           onDismiss={vi.fn()}
         />,
       );
 
       fireEvent.click(screen.getByTestId("slash-model-anthropic-claude-sonnet-4-5"));
 
-      expect(onSelect).toHaveBeenCalledWith("model anthropic/claude-sonnet-4-5");
+      expect(onFillInput).toHaveBeenCalledWith("/model anthropic/claude-sonnet-4-5 ");
     });
 
     it("shows 'No models available' when models list is empty", () => {
@@ -286,21 +285,21 @@ describe("SlashMenu", () => {
       expect(screen.queryByTestId("slash-skill-diagnose")).toBeNull();
     });
 
-    it("sends skill command with skill: prefix", () => {
-      const onSelect = vi.fn();
+    it("fills input with skill command", () => {
+      const onFillInput = vi.fn();
       render(
         <SlashMenu
           input="/skill "
           availableModels={EMPTY_MODELS}
           availableSkills={SAMPLE_SKILLS}
-          onSelect={onSelect}
+          onFillInput={onFillInput}
           onDismiss={vi.fn()}
         />,
       );
 
       fireEvent.click(screen.getByTestId("slash-skill-research"));
 
-      expect(onSelect).toHaveBeenCalledWith("skill:research");
+      expect(onFillInput).toHaveBeenCalledWith("/skill:research ");
     });
 
     it("shows 'No skills available' when skills list is empty", () => {

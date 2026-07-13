@@ -20,14 +20,14 @@ interface SlashMenuProps {
   availableModels: ModelInfo[];
   /** Available skills from pi's command registry. */
   availableSkills: SkillInfo[];
-  /** Called when a command is selected. The full command string is passed (e.g., "model" or "model anthropic/claude-sonnet-4-5"). */
-  onSelect: (command: string) => void;
+  /** Called when a command should be filled in the input (e.g., "model anthropic/claude-sonnet-4-5" or "skill:research"). */
+  onFillInput: (value: string) => void;
   /** Called when the menu should be dismissed. */
   onDismiss: () => void;
 }
 
 /** Dropdown menu shown when the user types `/` in the input. */
-export function SlashMenu({ input, availableModels, availableSkills, onSelect, onDismiss }: SlashMenuProps) {
+export function SlashMenu({ input, availableModels, availableSkills, onFillInput, onDismiss }: SlashMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const activeIndexRef = useRef(0);
   const [activeSubmenu, setActiveSubmenu] = useState<"model" | "skill" | null>(null);
@@ -111,12 +111,12 @@ export function SlashMenu({ input, availableModels, availableSkills, onSelect, o
       if (activeSubmenu === "model") {
         if (filteredModels.length > 0) {
           const model = filteredModels[activeIndexRef.current];
-          onSelect(`model ${model.provider}/${model.id}`);
+          onFillInput(`/model ${model.provider}/${model.id} `);
         }
       } else if (activeSubmenu === "skill") {
         if (filteredSkills.length > 0) {
           const skill = filteredSkills[activeIndexRef.current];
-          onSelect(`skill:${skill.name}`);
+          onFillInput(`/skill:${skill.name} `);
         }
       } else {
         if (filtered.length > 0) {
@@ -167,7 +167,7 @@ export function SlashMenu({ input, availableModels, availableSkills, onSelect, o
               key={`${model.provider}/${model.id}`}
               data-slash-item
               data-testid={`slash-model-${model.provider}-${model.id}`}
-              onClick={() => onSelect(`model ${model.provider}/${model.id}`)}
+              onClick={() => onFillInput(`/model ${model.provider}/${model.id} `)}
               style={{
                 padding: "10px 16px",
                 cursor: "pointer",
@@ -220,7 +220,7 @@ export function SlashMenu({ input, availableModels, availableSkills, onSelect, o
               key={skill.name}
               data-slash-item
               data-testid={`slash-skill-${skill.name}`}
-              onClick={() => onSelect(`skill:${skill.name}`)}
+              onClick={() => onFillInput(`/skill:${skill.name} `)}
               style={{
                 padding: "10px 16px",
                 cursor: "pointer",

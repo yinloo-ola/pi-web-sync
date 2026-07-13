@@ -95,6 +95,14 @@ export function Chat({
     [onSendCommand],
   );
 
+  const handleFillInput = useCallback(
+    (value: string) => {
+      setInput(value);
+      inputRef.current?.focus();
+    },
+    [],
+  );
+
   const handleSlashDismiss = useCallback(() => {
     inputRef.current?.focus();
   }, []);
@@ -255,7 +263,7 @@ export function Chat({
             input={input}
             availableModels={availableModels}
             availableSkills={availableSkills}
-            onSelect={handleSlashSelect}
+            onFillInput={handleFillInput}
             onDismiss={handleSlashDismiss}
           />
         )}
