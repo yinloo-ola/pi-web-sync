@@ -4,6 +4,7 @@ import { useRelay } from "./hooks/useRelay";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import type { ChatMessage } from "./types";
 import type { RelayMessage } from "pi-web-sync-protocol";
+import { parsePiCommand } from "pi-web-sync-protocol";
 
 const RELAY_URL = new URLSearchParams(window.location.search).get("relay") ?? "";
 
@@ -102,6 +103,25 @@ export default function App() {
 
   const handleSendCommand = useCallback(
     (command: string) => {
+      const parsed = parsePiCommand(command);
+      if (!parsed) {
+        // Unparseable — send as an ordinary user message (the extension's
+        // previous else-branch would have done sendUserMessage("/<command>")).
+        const text = `/${command}`;
+        addMessage({
+          id: `${sessionId}-${Date.now()}`,
+          role: "user",
+          text,
+          timestamp: Date.now(),
+        });
+        send({
+          type: "user_message",
+          sessionId,
+          payload: { role: "user", text, timestamp: Date.now() },
+        });
+        return;
+      }
+
       // Show the command as a user message for visibility
       const text = `/${command}`;
       addMessage({
@@ -110,11 +130,11 @@ export default function App() {
         text,
         timestamp: Date.now(),
       });
-      // Send as pi_command via relay
+      // Send typed PiCommand as pi_command payload
       send({
         type: "pi_command",
         sessionId,
-        payload: { command },
+        payload: { command: parsed },
       });
     },
     [sessionId, send, addMessage],

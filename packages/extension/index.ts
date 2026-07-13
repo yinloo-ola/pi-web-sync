@@ -6,6 +6,7 @@ import type { AutocompleteItem } from "@earendil-works/pi-tui";
 import QRCode from "qrcode";
 import { RelayClient, MAX_RETRIES, type ConnectionState } from "./relay-client";
 import type { RelayMessage } from "./types";
+import type { PiCommand } from "pi-web-sync-protocol";
 import { handlePiCommand } from "./command-handler";
 
 interface WebSyncConfig {
@@ -154,8 +155,8 @@ export default function (pi: ExtensionAPI) {
           const payload = msg.payload as { text: string };
           pi.sendUserMessage(payload.text);
         } else if (msg.type === "pi_command") {
-          const payload = msg.payload as { command: string };
-          console.debug("[pi-web-sync] received pi_command:", payload.command);
+          const payload = msg.payload as { command: PiCommand };
+          console.debug("[pi-web-sync] received pi_command:", payload.command.kind);
           await handlePiCommand(pi, ctx, payload.command, client!, sessionId!);
         }
       });

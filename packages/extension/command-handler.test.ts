@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { handlePiCommand } from "./command-handler";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import { parsePiCommand } from "pi-web-sync-protocol";
+import type { PiCommand } from "pi-web-sync-protocol";
 
 // ---------------------------------------------------------------------------
 // Mock factories
 // ---------------------------------------------------------------------------
 
-/** Create a mock ExtensionAPI (pi) with just the methods handlePiCommand uses. */
 function createMockPi(overrides?: Partial<{
   setModel: ReturnType<typeof vi.fn>;
   sendMessage: ReturnType<typeof vi.fn>;
@@ -19,7 +20,6 @@ function createMockPi(overrides?: Partial<{
   } as unknown as ExtensionAPI;
 }
 
-/** Create a mock ExtensionCommandContext (ctx) with just the methods handlePiCommand uses. */
 function createMockCtx(overrides?: Partial<{
   compact: ReturnType<typeof vi.fn>;
   ui: { notify: ReturnType<typeof vi.fn> };
@@ -34,18 +34,41 @@ function createMockCtx(overrides?: Partial<{
   } as unknown as ExtensionCommandContext;
 }
 
-// ---------------------------------------------------------------------------
-// Shared fake RelayClient & sessionId (unused by the handler today)
-// ---------------------------------------------------------------------------
-
 const fakeClient = {} as any;
 const fakeSessionId = "sess-123";
 
+/**
+ * Parse a command string via `parsePiCommand` and pass the result to
+ * `handlePiCommand`. This asserts coherence between the parser and
+ * handler — the same path the web app uses.
+ */
+async function parseAndHandle(
+  pi: ExtensionAPI,
+  ctx: ExtensionCommandContext,
+  commandStr: string,
+): Promise<void> {
+  const parsed = parsePiCommand(commandStr);
+  await handlePiCommand(pi, ctx, parsed as PiCommand, fakeClient, fakeSessionId);
+}
+
 // ---------------------------------------------------------------------------
 // Characterization tests
-// ---------------------------------------------------------------------------
+//
+// Each branch of the current command handler is characterized by the
+// pi-API effect it triggers. The string parsing has moved upstream to
+// `parsePiCommand` in the web app; the handler now matches on `kind`.
+//
+// Two styles prove equivalence:
+//   A) parsePiCommand(string) → handlePiCommand  (end-to-end, like the web app)
+//   B) Direct PiCommand value → handlePiCommand   (pure handler unit test)
+//
+// Both must agree with the original string-handler characterization
+// (ticket #0037) for parseable commands. Unparseable commands no
+// longer reach the handler — they are sent as user messages by the
+// web app.
+// -----------------------------------------------------------------------
 
-describe("handlePiCommand — characterization of current string-based handler", () => {
+describe("handlePiCommand — characterization (D: typed PiCommand)", () => {
   let pi: ExtensionAPI;
   let ctx: ExtensionCommandContext;
 
@@ -56,15 +79,29 @@ describe("handlePiCommand — characterization of current string-based handler",
   });
 
   // -----------------------------------------------------------------------
-  // 1. Model command — well-formed "model provider/id"
+  // 1. Model command
   // -----------------------------------------------------------------------
   describe("model command", () => {
-    it("calls setModel and notifies 'Switched to …' when the model is found and API key available", async () => {
+    const modelCmd: PiCommand = { kind: "model", provider: "anthropic", id: "claude-sonnet-4-5" };
+
+    it("[A] via parsePiCommand: calls setModel and notifies 'Switched to …'", async () => {
       const fakeModel = { id: "claude-sonnet-4-5", provider: "anthropic", name: "Claude Sonnet 4.5" };
       (ctx.modelRegistry.find as ReturnType<typeof vi.fn>).mockReturnValue(fakeModel);
       (pi.setModel as ReturnType<typeof vi.fn>).mockResolvedValue(true);
 
-      await handlePiCommand(pi, ctx, "model anthropic/claude-sonnet-4-5", fakeClient, fakeSessionId);
+      await parseAndHandle(pi, ctx, "model anthropic/claude-sonnet-4-5");
+
+      expect(ctx.modelRegistry.find).toHaveBeenCalledWith("anthropic", "claude-sonnet-4-5");
+      expect(pi.setModel).toHaveBeenCalledWith(fakeModel);
+      expect(ctx.ui.notify).toHaveBeenCalledWith("Switched to Claude Sonnet 4.5", "info");
+    });
+
+    it("[B] via direct PiCommand: calls setModel and notifies 'Switched to …'", async () => {
+      const fakeModel = { id: "claude-sonnet-4-5", provider: "anthropic", name: "Claude Sonnet 4.5" };
+      (ctx.modelRegistry.find as ReturnType<typeof vi.fn>).mockReturnValue(fakeModel);
+      (pi.setModel as ReturnType<typeof vi.fn>).mockResolvedValue(true);
+
+      await handlePiCommand(pi, ctx, modelCmd, fakeClient, fakeSessionId);
 
       expect(ctx.modelRegistry.find).toHaveBeenCalledWith("anthropic", "claude-sonnet-4-5");
       expect(pi.setModel).toHaveBeenCalledWith(fakeModel);
@@ -76,44 +113,18 @@ describe("handlePiCommand — characterization of current string-based handler",
       (ctx.modelRegistry.find as ReturnType<typeof vi.fn>).mockReturnValue(fakeModel);
       (pi.setModel as ReturnType<typeof vi.fn>).mockResolvedValue(false);
 
-      await handlePiCommand(pi, ctx, "model openai/gpt-4o", fakeClient, fakeSessionId);
+      await handlePiCommand(pi, ctx, { kind: "model", provider: "openai", id: "gpt-4o" }, fakeClient, fakeSessionId);
 
-      expect(ctx.modelRegistry.find).toHaveBeenCalledWith("openai", "gpt-4o");
-      expect(pi.setModel).toHaveBeenCalledWith(fakeModel);
       expect(ctx.ui.notify).toHaveBeenCalledWith("No API key for openai/gpt-4o", "error");
     });
 
-    it("notifies 'Model not found: …' when modelRegistry.find returns null/undefined", async () => {
+    it("notifies 'Model not found: …' when modelRegistry.find returns undefined", async () => {
       (ctx.modelRegistry.find as ReturnType<typeof vi.fn>).mockReturnValue(undefined);
 
-      await handlePiCommand(pi, ctx, "model unknown/foo-bar", fakeClient, fakeSessionId);
+      await parseAndHandle(pi, ctx, "model unknown/foo-bar");
 
-      expect(ctx.modelRegistry.find).toHaveBeenCalledWith("unknown", "foo-bar");
       expect(pi.setModel).not.toHaveBeenCalled();
       expect(ctx.ui.notify).toHaveBeenCalledWith("Model not found: unknown/foo-bar", "error");
-    });
-
-    it("notifies usage error when provider/id is malformed (no slash)", async () => {
-      await handlePiCommand(pi, ctx, "model nomodelname", fakeClient, fakeSessionId);
-
-      expect(ctx.modelRegistry.find).not.toHaveBeenCalled();
-      expect(pi.setModel).not.toHaveBeenCalled();
-      expect(ctx.ui.notify).toHaveBeenCalledWith("Usage: /model provider/model-id", "error");
-    });
-
-    it("notifies usage error when slash is at position 0 (empty provider)", async () => {
-      await handlePiCommand(pi, ctx, "model /model-id", fakeClient, fakeSessionId);
-
-      expect(ctx.modelRegistry.find).not.toHaveBeenCalled();
-      expect(ctx.ui.notify).toHaveBeenCalledWith("Usage: /model provider/model-id", "error");
-    });
-
-    it("falls through to unknown when 'model' has no args", async () => {
-      await handlePiCommand(pi, ctx, "model", fakeClient, fakeSessionId);
-
-      // "model" with no args does not match `cmd === "model" && args` (args is empty)
-      expect(ctx.modelRegistry.find).not.toHaveBeenCalled();
-      expect(pi.sendUserMessage).toHaveBeenCalledWith("/model");
     });
   });
 
@@ -122,7 +133,7 @@ describe("handlePiCommand — characterization of current string-based handler",
   // -----------------------------------------------------------------------
   describe("compact command", () => {
     it("calls ctx.compact() and notifies 'Compacting…'", async () => {
-      await handlePiCommand(pi, ctx, "compact", fakeClient, fakeSessionId);
+      await parseAndHandle(pi, ctx, "compact");
 
       expect(ctx.compact).toHaveBeenCalledOnce();
       expect(ctx.ui.notify).toHaveBeenCalledWith("Compacting...", "info");
@@ -131,8 +142,8 @@ describe("handlePiCommand — characterization of current string-based handler",
       expect(pi.sendUserMessage).not.toHaveBeenCalled();
     });
 
-    it("ignores trailing whitespace after 'compact'", async () => {
-      await handlePiCommand(pi, ctx, "compact ", fakeClient, fakeSessionId);
+    it("[B] via direct PiCommand: calls ctx.compact() and notifies 'Compacting…'", async () => {
+      await handlePiCommand(pi, ctx, { kind: "compact" }, fakeClient, fakeSessionId);
 
       expect(ctx.compact).toHaveBeenCalledOnce();
       expect(ctx.ui.notify).toHaveBeenCalledWith("Compacting...", "info");
@@ -140,81 +151,87 @@ describe("handlePiCommand — characterization of current string-based handler",
   });
 
   // -----------------------------------------------------------------------
-  // 3. Skill commands — "skill:name" with and without args
+  // 3. Skill commands
   // -----------------------------------------------------------------------
   describe("skill command", () => {
-    it("sends a skill with args via pi.sendMessage (customType: web-skill-command)", async () => {
-      await handlePiCommand(pi, ctx, "skill:research do a thing", fakeClient, fakeSessionId);
+    it("[A] sends skill with args via pi.sendMessage (customType: web-skill-command)", async () => {
+      await parseAndHandle(pi, ctx, "skill:research do a thing");
 
       expect(pi.sendMessage).toHaveBeenCalledWith({
         customType: "web-skill-command",
         content: "/skill:research do a thing",
         display: false,
-      }, {
-        triggerTurn: true,
-      });
+      }, { triggerTurn: true });
       expect(pi.sendUserMessage).not.toHaveBeenCalled();
       expect(ctx.ui.notify).not.toHaveBeenCalled();
     });
 
-    it("sends a skill without args via pi.sendMessage (customType: web-skill-command)", async () => {
-      await handlePiCommand(pi, ctx, "skill:research", fakeClient, fakeSessionId);
+    it("[B] sends skill with args via pi.sendMessage", async () => {
+      const cmd: PiCommand = { kind: "skill", name: "research", args: "do a thing" };
+      await handlePiCommand(pi, ctx, cmd, fakeClient, fakeSessionId);
+
+      expect(pi.sendMessage).toHaveBeenCalledWith({
+        customType: "web-skill-command",
+        content: "/skill:research do a thing",
+        display: false,
+      }, { triggerTurn: true });
+    });
+
+    it("[A] sends skill without args via pi.sendMessage", async () => {
+      await parseAndHandle(pi, ctx, "skill:research");
 
       expect(pi.sendMessage).toHaveBeenCalledWith({
         customType: "web-skill-command",
         content: "/skill:research",
         display: false,
-      }, {
-        triggerTurn: true,
-      });
-      expect(pi.sendUserMessage).not.toHaveBeenCalled();
+      }, { triggerTurn: true });
     });
 
-    it("preserves the full command string (including args) in the content", async () => {
-      await handlePiCommand(pi, ctx, "skill:diagnose this bug is weird", fakeClient, fakeSessionId);
+    it("[B] sends skill without args via pi.sendMessage", async () => {
+      const cmd: PiCommand = { kind: "skill", name: "research" };
+      await handlePiCommand(pi, ctx, cmd, fakeClient, fakeSessionId);
 
-      expect(pi.sendMessage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          content: "/skill:diagnose this bug is weird",
-        }),
-        expect.any(Object),
-      );
+      expect(pi.sendMessage).toHaveBeenCalledWith({
+        customType: "web-skill-command",
+        content: "/skill:research",
+        display: false,
+      }, { triggerTurn: true });
     });
   });
 
   // -----------------------------------------------------------------------
-  // 4. Unknown commands — fall through to sendUserMessage
+  // 4. Coherence: parsePiCommand → typed handler produces same effects
   // -----------------------------------------------------------------------
-  describe("unknown command", () => {
-    it("sends unknown command as a user message with / prefix", async () => {
-      await handlePiCommand(pi, ctx, "foo bar", fakeClient, fakeSessionId);
+  describe("parsePiCommand → handler coherence", () => {
+    it("model anthropic/claude-sonnet-4-5 → handler produces model-switch effects", async () => {
+      const fakeModel = { id: "claude-sonnet-4-5", provider: "anthropic", name: "Claude Sonnet 4.5" };
+      (ctx.modelRegistry.find as ReturnType<typeof vi.fn>).mockReturnValue(fakeModel);
+      (pi.setModel as ReturnType<typeof vi.fn>).mockResolvedValue(true);
 
-      expect(pi.sendUserMessage).toHaveBeenCalledWith("/foo bar");
-      expect(pi.sendMessage).not.toHaveBeenCalled();
-      expect(ctx.compact).not.toHaveBeenCalled();
+      const parsed = parsePiCommand("model anthropic/claude-sonnet-4-5")!;
+      await handlePiCommand(pi, ctx, parsed, fakeClient, fakeSessionId);
+
+      expect(pi.setModel).toHaveBeenCalledWith(fakeModel);
+      expect(ctx.ui.notify).toHaveBeenCalledWith("Switched to Claude Sonnet 4.5", "info");
     });
 
-    it("sends a bare unknown command as a user message with / prefix", async () => {
-      await handlePiCommand(pi, ctx, "foo", fakeClient, fakeSessionId);
+    it("compact → handler produces compaction effects", async () => {
+      const parsed = parsePiCommand("compact")!;
+      await handlePiCommand(pi, ctx, parsed, fakeClient, fakeSessionId);
 
-      expect(pi.sendUserMessage).toHaveBeenCalledWith("/foo");
+      expect(ctx.compact).toHaveBeenCalledOnce();
+      expect(ctx.ui.notify).toHaveBeenCalledWith("Compacting...", "info");
     });
 
-    it("sends 'model' (no args) as a user message via the unknown fallback", async () => {
-      // "model" without args does not match `cmd === "model" && args`
-      await handlePiCommand(pi, ctx, "model", fakeClient, fakeSessionId);
+    it("skill:research do a thing → handler produces sendMessage call", async () => {
+      const parsed = parsePiCommand("skill:research do a thing")!;
+      await handlePiCommand(pi, ctx, parsed, fakeClient, fakeSessionId);
 
-      expect(pi.sendUserMessage).toHaveBeenCalledWith("/model");
-    });
-
-    it("sends 'model provider/' (empty model ID) through the normal find path", async () => {
-      // slash > 0 is true, so it calls modelRegistry.find("provider", "")
-      (ctx.modelRegistry.find as ReturnType<typeof vi.fn>).mockReturnValue(undefined);
-
-      await handlePiCommand(pi, ctx, "model provider/", fakeClient, fakeSessionId);
-
-      expect(ctx.modelRegistry.find).toHaveBeenCalledWith("provider", "");
-      expect(ctx.ui.notify).toHaveBeenCalledWith("Model not found: provider/", "error");
+      expect(pi.sendMessage).toHaveBeenCalledWith({
+        customType: "web-skill-command",
+        content: "/skill:research do a thing",
+        display: false,
+      }, { triggerTurn: true });
     });
   });
 });

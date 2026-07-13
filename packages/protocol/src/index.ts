@@ -11,6 +11,8 @@
  * they are not wire contract.
  */
 
+import type { PiCommand } from "./pi-command";
+
 // ---------------------------------------------------------------------------
 // Message types
 // ---------------------------------------------------------------------------
@@ -75,8 +77,8 @@ export interface PeerDisconnectedPayload {
 }
 
 export interface PiCommandPayload {
-  /** The full command string (e.g., "model anthropic/claude-sonnet-4-5", "skill:research", "compact"). */
-  command: string;
+  /** The typed pi command (discriminated union). */
+  command: PiCommand;
 }
 
 export interface ModelsListPayload {
@@ -106,3 +108,7 @@ export const CLOSE_DUPLICATE_WEB = 4002;
 
 // Re-export session URL utilities for convenience.
 export { buildSessionWsUrl, parseSessionWsPath } from "./session-url";
+
+// Typed pi-command union + parser
+export type { PiCommand } from "./pi-command";
+export { parsePiCommand } from "./pi-command";
