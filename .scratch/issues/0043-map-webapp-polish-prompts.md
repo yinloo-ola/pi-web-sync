@@ -4,8 +4,8 @@ title: "Webapp message quality: table overflow, duplicate sync, and prompt suppo
 type: map
 parent: null
 blocked_by: []
-assigned: null
-status: open
+assigned: agent
+status: closed
 triage: ready-for-agent
 ---
 
@@ -39,6 +39,10 @@ The pi-web-sync webapp renders wide markdown tables without overflowing the view
 <!-- fog: in-scope decisions not yet sharp enough to ticket -->
 
 All decisions are now captured in the spec. The implementation tickets above are ready for development.
+
+## Resolution
+
+All three implementation tickets are closed. The webapp now renders wide markdown safely, deduplicates synced messages within a short content window, and supports sending prompt templates from the browser.
 
 ## Out of scope
 
