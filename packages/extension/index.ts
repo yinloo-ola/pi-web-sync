@@ -89,6 +89,7 @@ export default function (pi: ExtensionAPI) {
     const parts = command.split(" ");
     const cmd = parts[0];
     const args = parts.slice(1).join(" ");
+    console.debug(`[pi-web-sync] handlePiCommand: cmd=${cmd}, args=${args}`);
 
     if (cmd === "model" && args) {
       // Handle model switch: "model provider/id"
@@ -209,6 +210,7 @@ export default function (pi: ExtensionAPI) {
           pi.sendUserMessage(payload.text);
         } else if (msg.type === "pi_command") {
           const payload = msg.payload as { command: string };
+          console.debug("[pi-web-sync] received pi_command:", payload.command);
           await handlePiCommand(pi, ctx, payload.command, client!, sessionId!);
         }
       });

@@ -111,9 +111,9 @@ export function Chat({
     e.preventDefault();
     const text = input.trim();
     if (!text) return;
-    // If input starts with /, treat it as a command
+    // If input starts with /, treat it as a command (send full command string)
     if (text.startsWith("/")) {
-      const cmd = text.slice(1).split(" ")[0];
+      const cmd = text.slice(1); // Remove leading /
       if (cmd) {
         onSendCommand(cmd);
         setInput("");
