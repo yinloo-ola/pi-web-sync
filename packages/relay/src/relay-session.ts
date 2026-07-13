@@ -38,7 +38,7 @@ type ClientType = "pi" | "web";
 export class RelaySession {
   private pi: RelaySocket | null = null;
   private web: RelaySocket | null = null;
-  private readonly sessionId: string;
+  readonly sessionId: string;
 
   constructor(sessionId: string) {
     this.sessionId = sessionId;

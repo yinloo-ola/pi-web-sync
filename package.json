@@ -12,5 +12,8 @@
   },
   "dependencies": {
     "pi-web-sync": "^0.2.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.18.4"
   }
 }
