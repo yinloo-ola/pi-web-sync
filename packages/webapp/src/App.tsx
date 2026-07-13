@@ -103,7 +103,14 @@ export default function App() {
 
   const handleSendCommand = useCallback(
     (command: string) => {
-      const parsed = parsePiCommand(command);
+      // Check if the first token matches a known prompt template name
+      const firstToken = command.split(" ")[0];
+      const matchedPrompt = availablePrompts.find((p) => p.name === firstToken);
+
+      let parsed = matchedPrompt
+        ? ({ kind: "prompt", name: matchedPrompt.name, args: command.slice(firstToken.length + 1) || undefined } as const)
+        : parsePiCommand(command);
+
       if (!parsed) {
         // Unparseable — send as an ordinary user message (the extension's
         // previous else-branch would have done sendUserMessage("/<command>")).
@@ -137,7 +144,7 @@ export default function App() {
         payload: { command: parsed },
       });
     },
-    [sessionId, send, addMessage],
+    [sessionId, send, addMessage, availablePrompts],
   );
 
   return (

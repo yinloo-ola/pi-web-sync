@@ -8,6 +8,7 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import type { RelayClient } from "./relay-client";
 import type { PiCommand } from "pi-web-sync-protocol";
+import { expandPromptTemplate, type PromptTemplate } from "./prompts";
 
 export async function handlePiCommand(
   pi: ExtensionAPI,
@@ -15,6 +16,7 @@ export async function handlePiCommand(
   command: PiCommand,
   _client: RelayClient,
   _sessionId: string,
+  promptTemplates?: PromptTemplate[],
 ): Promise<void> {
   console.debug(`[pi-web-sync] handlePiCommand: kind=${command.kind}`);
 
@@ -52,6 +54,15 @@ export async function handlePiCommand(
       }, {
         triggerTurn: true,
       });
+      break;
+    }
+
+    case "prompt": {
+      const cmdText = command.args ? `/${command.name} ${command.args}` : `/${command.name}`;
+      const expanded = promptTemplates
+        ? expandPromptTemplate(cmdText, promptTemplates)
+        : cmdText;
+      pi.sendUserMessage(expanded);
       break;
     }
   }

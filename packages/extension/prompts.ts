@@ -1,9 +1,6 @@
-import { createRequire } from "module";
 import { existsSync, readdirSync, readFileSync, statSync } from "fs";
-import { basename, dirname, join, resolve } from "path";
+import { basename, join, resolve } from "path";
 import { parseFrontmatter } from "@earendil-works/pi-coding-agent";
-
-const _require = typeof require === "undefined" ? createRequire(import.meta.url) : require;
 
 /** A prompt template loaded from a markdown file. */
 export interface PromptTemplate {
@@ -53,45 +50,49 @@ function loadPromptTemplatesFromPackages(agentDir: string): PromptTemplate[] {
   }
 
   const packages = settings.packages ?? [];
-  for (const entry of packages) {
-    if (typeof entry !== "string" || !entry.startsWith("npm:")) continue;
 
-    const pkgName = entry.slice("npm:".length);
+  // Pi stores installed npm packages under agentDir/npm/node_modules/<pkg>
+  const npmDir = join(agentDir, "npm", "node_modules");
+  if (!existsSync(npmDir)) return [];
 
+  let pkgDirs: string[];
+  try {
+    pkgDirs = readdirSync(npmDir);
+  } catch {
+    return [];
+  }
+
+  for (const pkgName of pkgDirs) {
+    const pkgRoot = join(npmDir, pkgName);
+    const pkgJsonPath = join(pkgRoot, "package.json");
+    if (!existsSync(pkgJsonPath)) continue;
+
+    // Always check for a prompts/ subdirectory
+    templates.push(...loadTemplatesFromDir(join(pkgRoot, "prompts")));
+
+    // Check for pi.prompts field in package.json
+    let pkgJson: { pi?: { prompts?: string | string[] } };
     try {
-      // require.resolve may throw for packages not installed
-      const pkgJsonPath = _require.resolve(pkgName + "/package.json");
-      const pkgRoot = dirname(pkgJsonPath);
+      pkgJson = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));
+    } catch {
+      continue;
+    }
 
-      // Always check for a prompts/ subdirectory
-      templates.push(...loadTemplatesFromDir(join(pkgRoot, "prompts")));
-
-      // Check for pi.prompts field in package.json
-      let pkgJson: { pi?: { prompts?: string | string[] } };
-      try {
-        pkgJson = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));
-      } catch {
-        continue;
-      }
-
-      const piConfig = pkgJson.pi;
-      if (piConfig?.prompts) {
-        const paths = Array.isArray(piConfig.prompts) ? piConfig.prompts : [piConfig.prompts];
-        for (const promptPath of paths) {
-          const resolved = resolve(pkgRoot, promptPath);
-          if (existsSync(resolved)) {
-            const stats = statSync(resolved);
-            if (stats.isDirectory()) {
-              templates.push(...loadTemplatesFromDir(resolved));
-            } else if (stats.isFile() && promptPath.endsWith(".md")) {
-              const parsed = loadTemplateFromFile(resolved);
-              if (parsed) templates.push(parsed);
-            }
+    const piConfig = pkgJson.pi;
+    if (piConfig?.prompts) {
+      const paths = Array.isArray(piConfig.prompts) ? piConfig.prompts : [piConfig.prompts];
+      for (const promptPath of paths) {
+        const resolved = resolve(pkgRoot, promptPath);
+        if (existsSync(resolved)) {
+          const stats = statSync(resolved);
+          if (stats.isDirectory()) {
+            templates.push(...loadTemplatesFromDir(resolved));
+          } else if (stats.isFile() && promptPath.endsWith(".md")) {
+            const parsed = loadTemplateFromFile(resolved);
+            if (parsed) templates.push(parsed);
           }
         }
       }
-    } catch {
-      // Package not installed — skip silently
     }
   }
 
@@ -232,8 +233,8 @@ export function substituteArgs(content: string, args: string[]): string {
         return allArgs;
       }
 
-      const index = parseInt(placeholder, 10) - 1;
-      return args[index] ?? "";
+      const idx = parseInt(placeholder, 10) - 1;
+      return args[idx] ?? "";
     },
   );
 }

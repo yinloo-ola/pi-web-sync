@@ -180,7 +180,7 @@ export default function (pi: ExtensionAPI) {
         } else if (msg.type === "pi_command") {
           const payload = msg.payload as { command: PiCommand };
           console.info("[pi-web-sync] received pi_command:", payload.command.kind);
-          await handlePiCommand(pi, ctx, payload.command, client!, sessionId!);
+          await handlePiCommand(pi, ctx, payload.command, client!, sessionId!, promptTemplates);
         }
       });
 

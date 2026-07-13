@@ -10,6 +10,7 @@
 export type PiCommand =
   | { kind: "model"; provider: string; id: string }
   | { kind: "skill"; name: string; args?: string }
+  | { kind: "prompt"; name: string; args?: string }
   | { kind: "compact" };
 
 /**
@@ -53,6 +54,17 @@ export function parsePiCommand(input: string): PiCommand | null {
     if (!name) return null; // empty name
     return {
       kind: "skill",
+      name,
+      ...(args ? { args } : {}),
+    };
+  }
+
+  if (cmd && cmd.startsWith("prompt:")) {
+    // "prompt:<name>[ args]"
+    const name = cmd.substring("prompt:".length);
+    if (!name) return null;
+    return {
+      kind: "prompt",
       name,
       ...(args ? { args } : {}),
     };
