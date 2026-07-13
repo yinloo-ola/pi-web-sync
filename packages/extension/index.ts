@@ -115,10 +115,16 @@ export default function (pi: ExtensionAPI) {
       ctx.compact();
       ctx.ui.notify("Compacting...", "info");
     } else {
-      // For skill commands, send the skill command for expansion
+      // For skill commands, use sendMessage to trigger expansion
       if (cmd.startsWith("skill:")) {
-        // Send as user message - pi should expand the skill command
-        pi.sendUserMessage(`/${command}`);
+        // Use sendMessage with custom type to trigger skill expansion
+        pi.sendMessage({
+          customType: "web-skill-command",
+          content: `/${command}`,
+          display: false,
+        }, {
+          triggerTurn: true,
+        });
       } else {
         // For other commands, send as user message with / prefix
         pi.sendUserMessage(`/${command}`);
