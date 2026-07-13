@@ -25,11 +25,12 @@ The pi-web-sync webapp renders wide markdown tables without overflowing the view
 
 - [Spec: Webapp message quality](0047-spec-webapp-polish-prompts.md) — full PRD covering overflow-safe rendering, content-based deduplication, and prompt-template discovery/expansion. ✓
 - [Fix markdown table overflow in webapp message bubbles](0044-fix-table-overflow-webapp.md) — `.message-bubble` now wraps/breaks text, tables and code blocks scroll horizontally, images scale, and `MessageBubble` is covered by tests. Closed.
+- [Deduplicate messages after history sync](0045-dedupe-synced-messages.md) — `useLocalStorage` now deduplicates by role + text + 5s timestamp window as well as by id. `useLocalStorage` tests expanded. Closed.
 
 ## Implementation tickets
 
 - [0044] ~~Fix markdown table overflow in webapp message bubbles~~ ✓
-- [0045] Deduplicate messages after history sync
+- [0045] ~~Deduplicate messages after history sync~~ ✓
 - [0046] Send prompt templates from the webapp
 
 ## Not yet specified

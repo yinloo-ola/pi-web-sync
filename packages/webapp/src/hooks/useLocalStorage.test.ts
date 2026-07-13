@@ -107,6 +107,114 @@ describe("useLocalStorage", () => {
     });
   });
 
+  describe("content-based deduplication", () => {
+    it("treats same role/text/timestamp within 5s as a duplicate", () => {
+      const { result } = renderHook(() => useLocalStorage("s1"));
+      act(() => {
+        result.current.addMessage(makeMsg("s1-1000", "user", "hello", 1000));
+      });
+
+      act(() => {
+        result.current.mergeMessages([
+          makeMsg("s1-3500", "user", "hello", 3500),
+        ]);
+      });
+
+      expect(result.current.messages).toHaveLength(1);
+      expect(result.current.messages[0].id).toBe("s1-1000");
+    });
+
+    it("keeps same text when timestamps are more than 5s apart", () => {
+      const { result } = renderHook(() => useLocalStorage("s1"));
+      act(() => {
+        result.current.addMessage(makeMsg("s1-1000", "user", "hello", 1000));
+      });
+
+      act(() => {
+        result.current.mergeMessages([
+          makeMsg("s1-20000", "user", "hello", 20000),
+        ]);
+      });
+
+      expect(result.current.messages).toHaveLength(2);
+    });
+
+    it("deduplicates assistant messages from sync within the window", () => {
+      const { result } = renderHook(() => useLocalStorage("s1"));
+      act(() => {
+        result.current.addMessage(makeMsg("s1-5000", "assistant", "Done.", 5000));
+      });
+
+      act(() => {
+        result.current.mergeMessages([
+          makeMsg("s1-9000", "assistant", "Done.", 9000),
+        ]);
+      });
+
+      expect(result.current.messages).toHaveLength(1);
+      expect(result.current.messages[0].id).toBe("s1-5000");
+    });
+
+    it("keeps messages with different text", () => {
+      const { result } = renderHook(() => useLocalStorage("s1"));
+      act(() => {
+        result.current.addMessage(makeMsg("s1-1000", "user", "hi", 1000));
+      });
+
+      act(() => {
+        result.current.mergeMessages([
+          makeMsg("s1-1001", "user", "hello", 1000),
+        ]);
+      });
+
+      expect(result.current.messages).toHaveLength(2);
+    });
+
+    it("keeps same text with different roles", () => {
+      const { result } = renderHook(() => useLocalStorage("s1"));
+      act(() => {
+        result.current.addMessage(makeMsg("s1-1000", "user", "go", 1000));
+      });
+
+      act(() => {
+        result.current.mergeMessages([
+          makeMsg("s1-1500", "assistant", "go", 1500),
+        ]);
+      });
+
+      expect(result.current.messages).toHaveLength(2);
+    });
+
+    it("trims whitespace when comparing text", () => {
+      const { result } = renderHook(() => useLocalStorage("s1"));
+      act(() => {
+        result.current.addMessage(makeMsg("s1-1000", "user", "hello", 1000));
+      });
+
+      act(() => {
+        result.current.mergeMessages([
+          makeMsg("s1-2500", "user", "  hello  ", 2500),
+        ]);
+      });
+
+      expect(result.current.messages).toHaveLength(1);
+    });
+
+    it("guards addMessage against content duplicates", () => {
+      const { result } = renderHook(() => useLocalStorage("s1"));
+      act(() => {
+        result.current.addMessage(makeMsg("s1-1000", "user", "hello", 1000));
+      });
+
+      act(() => {
+        result.current.addMessage(makeMsg("s1-3500", "user", "hello", 3500));
+      });
+
+      expect(result.current.messages).toHaveLength(1);
+      expect(result.current.messages[0].id).toBe("s1-1000");
+    });
+  });
+
   describe("clearMessages", () => {
     it("clears all messages from state and localStorage", () => {
       const { result } = renderHook(() => useLocalStorage("s1"));

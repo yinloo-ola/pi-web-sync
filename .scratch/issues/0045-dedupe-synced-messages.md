@@ -4,8 +4,8 @@ title: "Deduplicate messages after history sync"
 type: task
 parent: 0043
 blocked_by: []
-assigned: null
-status: open
+assigned: agent
+status: closed
 triage: ready-for-agent
 ---
 
@@ -17,7 +17,10 @@ Why do messages sometimes appear twice in the webapp after a reconnect or page r
 
 ## Resolution
 
-(TBD on close)
+- Added a `DEDUP_WINDOW_MS = 5000` content-based duplicate check in `packages/webapp/src/hooks/useLocalStorage.ts`.
+- `mergeMessages` now skips incoming messages whose `role` + trimmed `text` + timestamp (within 5s) matches an already-stored message, in addition to the existing id-based dedup.
+- `addMessage` also guards against the same content duplicate, preventing double insertion when a direct relay message echoes a stored one.
+- Added 7 tests in `packages/webapp/src/hooks/useLocalStorage.test.ts` covering within-window dedup, outside-window preservation, role/text/whitespace behavior, and `addMessage` guard.
 
 ## Problem
 

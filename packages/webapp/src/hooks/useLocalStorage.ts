@@ -4,6 +4,14 @@ import type { ChatMessage } from "../types";
 const STORAGE_PREFIX = "pi-web-sync:";
 /** Messages older than this are auto-cleared on load (1 week in ms). */
 const TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/** Content-based duplicate window: same role/text within this range is treated as one message. */
+const DEDUP_WINDOW_MS = 5000;
+
+function isContentDuplicate(a: ChatMessage, b: ChatMessage): boolean {
+  if (a.role !== b.role) return false;
+  if (a.text.trim() !== b.text.trim()) return false;
+  return Math.abs(a.timestamp - b.timestamp) <= DEDUP_WINDOW_MS;
+}
 
 /** Hook that persists chat messages to localStorage. Returns messages and addMessage. */
 export function useLocalStorage(sessionId: string): {
@@ -49,6 +57,9 @@ export function useLocalStorage(sessionId: string): {
   const addMessage = useCallback(
     (msg: ChatMessage) => {
       setMessages((prev) => {
+        if (prev.some((m) => isContentDuplicate(m, msg))) {
+          return prev;
+        }
         const next = [...prev, msg];
         persist(next);
         return next;
@@ -62,7 +73,9 @@ export function useLocalStorage(sessionId: string): {
       if (incoming.length === 0) return;
       setMessages((prev) => {
         const seen = new Set(prev.map((m) => m.id));
-        const additions = incoming.filter((m) => !seen.has(m.id));
+        const additions = incoming.filter(
+          (m) => !seen.has(m.id) && !prev.some((p) => isContentDuplicate(p, m)),
+        );
         if (additions.length === 0) return prev;
         const next = [...prev, ...additions].sort((a, b) => a.timestamp - b.timestamp);
         persist(next);
