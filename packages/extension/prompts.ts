@@ -1,6 +1,9 @@
+import { createRequire } from "module";
 import { existsSync, readdirSync, readFileSync, statSync } from "fs";
-import { basename, join, resolve } from "path";
+import { basename, dirname, join, resolve } from "path";
 import { parseFrontmatter } from "@earendil-works/pi-coding-agent";
+
+const _require = typeof require === "undefined" ? createRequire(import.meta.url) : require;
 
 /** A prompt template loaded from a markdown file. */
 export interface PromptTemplate {
@@ -11,7 +14,7 @@ export interface PromptTemplate {
   filePath: string;
 }
 
-/** Load .md prompt templates from global and (optionally) project directories. */
+/** Load .md prompt templates from global, (optionally) project, and installed packages. */
 export function loadPromptTemplates(
   cwd: string,
   agentDir: string,
@@ -25,6 +28,71 @@ export function loadPromptTemplates(
   if (projectTrusted) {
     const projectDir = resolve(join(cwd, ".pi", "prompts"));
     templates.push(...loadTemplatesFromDir(projectDir));
+  }
+
+  templates.push(...loadPromptTemplatesFromPackages(agentDir));
+
+  return templates;
+}
+
+/**
+ * Discover prompt templates from installed packages listed in settings.json.
+ * Scans npm-package entries for a `prompts/` directory and `pi.prompts` field.
+ */
+function loadPromptTemplatesFromPackages(agentDir: string): PromptTemplate[] {
+  const templates: PromptTemplate[] = [];
+
+  const settingsPath = join(agentDir, "settings.json");
+  if (!existsSync(settingsPath)) return [];
+
+  let settings: { packages?: string[] };
+  try {
+    settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
+  } catch {
+    return [];
+  }
+
+  const packages = settings.packages ?? [];
+  for (const entry of packages) {
+    if (typeof entry !== "string" || !entry.startsWith("npm:")) continue;
+
+    const pkgName = entry.slice("npm:".length);
+
+    try {
+      // require.resolve may throw for packages not installed
+      const pkgJsonPath = _require.resolve(pkgName + "/package.json");
+      const pkgRoot = dirname(pkgJsonPath);
+
+      // Always check for a prompts/ subdirectory
+      templates.push(...loadTemplatesFromDir(join(pkgRoot, "prompts")));
+
+      // Check for pi.prompts field in package.json
+      let pkgJson: { pi?: { prompts?: string | string[] } };
+      try {
+        pkgJson = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));
+      } catch {
+        continue;
+      }
+
+      const piConfig = pkgJson.pi;
+      if (piConfig?.prompts) {
+        const paths = Array.isArray(piConfig.prompts) ? piConfig.prompts : [piConfig.prompts];
+        for (const promptPath of paths) {
+          const resolved = resolve(pkgRoot, promptPath);
+          if (existsSync(resolved)) {
+            const stats = statSync(resolved);
+            if (stats.isDirectory()) {
+              templates.push(...loadTemplatesFromDir(resolved));
+            } else if (stats.isFile() && promptPath.endsWith(".md")) {
+              const parsed = loadTemplateFromFile(resolved);
+              if (parsed) templates.push(parsed);
+            }
+          }
+        }
+      }
+    } catch {
+      // Package not installed — skip silently
+    }
   }
 
   return templates;

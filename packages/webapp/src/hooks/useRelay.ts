@@ -234,7 +234,7 @@ export function useRelay(
 
         // Prompt templates list from pi
         if (msg.type === "prompts_list") {
-          const payload = msg.payload as PromptsListPayload;
+          const payload = msg.payload as unknown as PromptsListPayload;
           console.debug("[pi-web-sync] received prompts_list:", payload.prompts?.length ?? 0, "prompts");
           setAvailablePrompts(payload.prompts ?? []);
           return; // not forwarded to the app
