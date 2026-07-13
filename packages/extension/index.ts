@@ -77,6 +77,45 @@ export default function (pi: ExtensionAPI) {
   let relayUrl = RELAY_URL;
   let webappUrl = WEBAPP_URL;
 
+  /** Handle pi commands received from the web app. */
+  async function handlePiCommand(
+    pi: ExtensionAPI,
+    ctx: ExtensionCommandContext,
+    command: string,
+    client: RelayClient,
+    sessionId: string,
+  ): Promise<void> {
+    // Parse "model provider/id" or just "model"
+    const parts = command.split(" ");
+    const cmd = parts[0];
+    const args = parts.slice(1).join(" ");
+
+    if (cmd === "model" && args) {
+      // Handle model switch: "model provider/id"
+      const slash = args.indexOf("/");
+      if (slash > 0) {
+        const provider = args.substring(0, slash);
+        const modelId = args.substring(slash + 1);
+        const model = ctx.modelRegistry.find(provider, modelId);
+        if (model) {
+          const success = await pi.setModel(model);
+          if (success) {
+            ctx.ui.notify(`Switched to ${model.name ?? modelId}`, "info");
+          } else {
+            ctx.ui.notify(`No API key for ${provider}/${modelId}`, "error");
+          }
+        } else {
+          ctx.ui.notify(`Model not found: ${provider}/${modelId}`, "error");
+        }
+      } else {
+        ctx.ui.notify("Usage: /model provider/model-id", "error");
+      }
+    } else {
+      // For other commands, send as user message with / prefix
+      pi.sendUserMessage(`/${command}`);
+    }
+  }
+
   /** Attempt to connect to the relay. Returns true on success. */
   async function connectRelay(ctx: ExtensionCommandContext): Promise<boolean> {
     const sid = ctx.sessionManager.getSessionId();
@@ -106,8 +145,7 @@ export default function (pi: ExtensionAPI) {
           pi.sendUserMessage(payload.text);
         } else if (msg.type === "pi_command") {
           const payload = msg.payload as { command: string };
-          // Route pi commands to pi's command handler
-          pi.sendUserMessage(`/${payload.command}`);
+          await handlePiCommand(pi, ctx, payload.command, client!, sessionId!);
         }
       });
 
