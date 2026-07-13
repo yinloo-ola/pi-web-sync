@@ -115,22 +115,10 @@ export default function (pi: ExtensionAPI) {
       ctx.compact();
       ctx.ui.notify("Compacting...", "info");
     } else {
-      // For skill commands, read the SKILL.md content and send it
+      // For skill commands, send the skill command for expansion
       if (cmd.startsWith("skill:")) {
-        const skillName = cmd.substring(6); // Remove "skill:" prefix
-        const commands = pi.getCommands();
-        const skillCmd = commands.find((c) => c.source === "skill" && c.name === skillName);
-        if (skillCmd?.sourceInfo?.path) {
-          try {
-            const { readFileSync } = await import("fs");
-            const skillContent = readFileSync(skillCmd.sourceInfo.path, "utf-8");
-            pi.sendUserMessage(skillContent);
-          } catch (err) {
-            ctx.ui.notify(`Failed to load skill: ${skillName}`, "error");
-          }
-        } else {
-          ctx.ui.notify(`Skill not found: ${skillName}`, "error");
-        }
+        // Send as user message - pi should expand the skill command
+        pi.sendUserMessage(`/${command}`);
       } else {
         // For other commands, send as user message with / prefix
         pi.sendUserMessage(`/${command}`);
