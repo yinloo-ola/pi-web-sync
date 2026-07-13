@@ -5,6 +5,7 @@ import { SlashMenu } from "./SlashMenu";
 import type { RelayState } from "../hooks/useRelay";
 import type { PiStatus } from "../hooks/useRelay";
 import type { ModelInfo } from "../hooks/useRelay";
+import type { SkillInfo } from "../hooks/useRelay";
 
 interface ChatProps {
   messages: ChatMessage[];
@@ -19,6 +20,8 @@ interface ChatProps {
   sessionEnded: boolean;
   /** Available models from pi's registry. */
   availableModels: ModelInfo[];
+  /** Available skills from pi's command registry. */
+  availableSkills: SkillInfo[];
   onReconnect: () => void;
 }
 
@@ -53,6 +56,7 @@ export function Chat({
   piStatus,
   sessionEnded,
   availableModels,
+  availableSkills,
   onReconnect,
 }: ChatProps) {
   const [input, setInput] = useState("");
@@ -250,6 +254,7 @@ export function Chat({
           <SlashMenu
             input={input}
             availableModels={availableModels}
+            availableSkills={availableSkills}
             onSelect={handleSlashSelect}
             onDismiss={handleSlashDismiss}
           />

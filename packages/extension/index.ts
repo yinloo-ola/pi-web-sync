@@ -196,6 +196,25 @@ export default function (pi: ExtensionAPI) {
         console.debug("[pi-web-sync] failed to send models_list:", err instanceof Error ? err.message : err);
       }
 
+      // Send available skills to the web app
+      try {
+        const allCommands = pi.getCommands();
+        const skills = allCommands
+          .filter((cmd) => cmd.source === "skill")
+          .map((cmd) => ({
+            name: cmd.name,
+            description: cmd.description,
+            source: cmd.source,
+          }));
+        client!.send({
+          type: "skills_list",
+          sessionId: sessionId!,
+          payload: { skills },
+        });
+      } catch (err) {
+        console.debug("[pi-web-sync] failed to send skills_list:", err instanceof Error ? err.message : err);
+      }
+
       // Show QR code for the session URL (auto-dismisses after 10s)
       showQrCode(ctx.ui, sessionUrl);
       return true;

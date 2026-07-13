@@ -15,6 +15,7 @@ export type MessageType =
   | "pong"
   | "pi_command"
   | "models_list"
+  | "skills_list"
   | "session_ended";
 
 export interface RelayMessage {
@@ -61,6 +62,11 @@ export interface PiCommandPayload {
 export interface ModelsListPayload {
   /** Available models from pi's registry. */
   models: Array<{ id: string; provider: string; name: string }>;
+}
+
+export interface SkillsListPayload {
+  /** Available skills from pi's command registry. */
+  skills: Array<{ name: string; description?: string; source: string }>;
 }
 
 export interface SessionEndedPayload {

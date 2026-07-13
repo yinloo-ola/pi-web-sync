@@ -53,6 +53,12 @@ export interface ModelInfo {
   name: string;
 }
 
+export interface SkillInfo {
+  name: string;
+  description?: string;
+  source: string;
+}
+
 /** Hook that manages the relay WebSocket connection with auto-reconnect. */
 export function useRelay(
   sessionId: string,
@@ -65,6 +71,8 @@ export function useRelay(
   sessionEnded: boolean;
   /** Available models from pi's registry. */
   availableModels: ModelInfo[];
+  /** Available skills from pi's command registry. */
+  availableSkills: SkillInfo[];
   /** Current reconnect attempt (1-based) while `state === "reconnecting"`; 0 otherwise. */
   retryAttempt: number;
   send: (msg: RelayMessage) => void;
@@ -74,6 +82,7 @@ export function useRelay(
   const [piStatus, setPiStatus] = useState<PiStatus>("unknown");
   const [sessionEnded, setSessionEnded] = useState(false);
   const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
+  const [availableSkills, setAvailableSkills] = useState<SkillInfo[]>([]);
   const [retryAttempt, setRetryAttempt] = useState(0);
 
   const wsRef = useRef<ReconnectingWebSocket | null>(null);
@@ -214,6 +223,13 @@ export function useRelay(
           return; // not forwarded to the app
         }
 
+        // Skills list from pi's command registry
+        if (msg.type === "skills_list") {
+          const payload = msg.payload as { skills: Array<{ name: string; description?: string; source: string }> };
+          setAvailableSkills(payload.skills ?? []);
+          return; // not forwarded to the app
+        }
+
         // sync_response means pi is alive — cancel the stale timer
         if (msg.type === "sync_response" && staleTimerRef.current) {
           clearTimeout(staleTimerRef.current);
@@ -300,5 +316,5 @@ export function useRelay(
   // Keep the heartbeat's reference to reconnect current across renders.
   reconnectRef.current = reconnect;
 
-  return { state, piStatus, sessionEnded, availableModels, retryAttempt, send, reconnect };
+  return { state, piStatus, sessionEnded, availableModels, availableSkills, retryAttempt, send, reconnect };
 }

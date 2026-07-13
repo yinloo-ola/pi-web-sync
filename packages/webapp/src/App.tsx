@@ -68,7 +68,7 @@ export default function App() {
     [addMessage, mergeMessages],
   );
 
-  const { state, piStatus, sessionEnded, availableModels, retryAttempt, send, reconnect } = useRelay(
+  const { state, piStatus, sessionEnded, availableModels, availableSkills, retryAttempt, send, reconnect } = useRelay(
     sessionId,
     RELAY_URL,
     handleMessage,
@@ -131,6 +131,7 @@ export default function App() {
       piStatus={piStatus}
       sessionEnded={sessionEnded}
       availableModels={availableModels}
+      availableSkills={availableSkills}
       onReconnect={reconnect}
     />
   );

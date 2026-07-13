@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { ModelInfo } from "../hooks/useRelay";
+import type { ModelInfo, SkillInfo } from "../hooks/useRelay";
 
 export interface SlashCommand {
   name: string;
@@ -10,7 +10,6 @@ export interface SlashCommand {
 export const PI_COMMANDS: SlashCommand[] = [
   { name: "model", description: "Switch the active model" },
   { name: "skill", description: "Run a skill by name" },
-  { name: "compact", description: "Compact the conversation context" },
 ];
 
 interface SlashMenuProps {
@@ -18,6 +17,8 @@ interface SlashMenuProps {
   input: string;
   /** Available models from pi's registry. */
   availableModels: ModelInfo[];
+  /** Available skills from pi's command registry. */
+  availableSkills: SkillInfo[];
   /** Called when a command is selected. The full command string is passed (e.g., "model" or "model anthropic/claude-sonnet-4-5"). */
   onSelect: (command: string) => void;
   /** Called when the menu should be dismissed. */
@@ -25,15 +26,15 @@ interface SlashMenuProps {
 }
 
 /** Dropdown menu shown when the user types `/` in the input. */
-export function SlashMenu({ input, availableModels, onSelect, onDismiss }: SlashMenuProps) {
+export function SlashMenu({ input, availableModels, availableSkills, onSelect, onDismiss }: SlashMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const activeIndexRef = useRef(0);
-  const [showModelSubmenu, setShowModelSubmenu] = useState(false);
+  const [activeSubmenu, setActiveSubmenu] = useState<"model" | "skill" | null>(null);
 
   // Parse the input: "/model" or "/model <query>"
   const parts = input.slice(1).split(" ");
   const commandQuery = parts[0]?.toLowerCase() ?? "";
-  const modelQuery = parts.slice(1).join(" ").toLowerCase();
+  const submenuQuery = parts.slice(1).join(" ").toLowerCase();
 
   // Filter commands by prefix
   const filtered = PI_COMMANDS.filter((cmd) => cmd.name.toLowerCase().startsWith(commandQuery));
@@ -41,11 +42,13 @@ export function SlashMenu({ input, availableModels, onSelect, onDismiss }: Slash
   // Reset active index and submenu when input changes
   useEffect(() => {
     activeIndexRef.current = 0;
-    // Show model submenu if user typed "/model " (with space)
+    // Show submenu if user typed "/model " or "/skill " (with space)
     if (commandQuery === "model" && parts.length > 1) {
-      setShowModelSubmenu(true);
-    } else {
-      setShowModelSubmenu(false);
+      setActiveSubmenu("model");
+    } else if (commandQuery === "skill" && parts.length > 1) {
+      setActiveSubmenu("skill");
+    } else if (commandQuery !== "model" && commandQuery !== "skill") {
+      setActiveSubmenu(null);
     }
   }, [input]);
 
@@ -63,18 +66,25 @@ export function SlashMenu({ input, availableModels, onSelect, onDismiss }: Slash
   // Filter models by query
   const filteredModels = availableModels.filter(
     (m) =>
-      m.name.toLowerCase().includes(modelQuery) ||
-      m.id.toLowerCase().includes(modelQuery) ||
-      m.provider.toLowerCase().includes(modelQuery),
+      m.name.toLowerCase().includes(submenuQuery) ||
+      m.id.toLowerCase().includes(submenuQuery) ||
+      m.provider.toLowerCase().includes(submenuQuery),
+  );
+
+  // Filter skills by query
+  const filteredSkills = availableSkills.filter(
+    (s) =>
+      s.name.toLowerCase().includes(submenuQuery) ||
+      s.description?.toLowerCase().includes(submenuQuery),
   );
 
   // Keyboard navigation
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Escape") {
       e.preventDefault();
-      if (showModelSubmenu) {
+      if (activeSubmenu) {
         // Go back to command list
-        setShowModelSubmenu(false);
+        setActiveSubmenu(null);
       } else {
         onDismiss();
       }
@@ -82,7 +92,7 @@ export function SlashMenu({ input, availableModels, onSelect, onDismiss }: Slash
     }
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      const items = showModelSubmenu ? filteredModels : filtered;
+      const items = activeSubmenu === "model" ? filteredModels : activeSubmenu === "skill" ? filteredSkills : filtered;
       activeIndexRef.current = Math.min(activeIndexRef.current + 1, items.length - 1);
       const menuItems = menuRef.current?.querySelectorAll("[data-slash-item]");
       menuItems?.[activeIndexRef.current]?.scrollIntoView({ block: "nearest" });
@@ -97,17 +107,24 @@ export function SlashMenu({ input, availableModels, onSelect, onDismiss }: Slash
     }
     if (e.key === "Enter") {
       e.preventDefault();
-      if (showModelSubmenu) {
+      if (activeSubmenu === "model") {
         if (filteredModels.length > 0) {
           const model = filteredModels[activeIndexRef.current];
           onSelect(`model ${model.provider}/${model.id}`);
+        }
+      } else if (activeSubmenu === "skill") {
+        if (filteredSkills.length > 0) {
+          const skill = filteredSkills[activeIndexRef.current];
+          onSelect(`skill:${skill.name}`);
         }
       } else {
         if (filtered.length > 0) {
           const cmd = filtered[activeIndexRef.current].name;
           if (cmd === "model") {
-            // Show model submenu
-            setShowModelSubmenu(true);
+            setActiveSubmenu("model");
+            activeIndexRef.current = 0;
+          } else if (cmd === "skill") {
+            setActiveSubmenu("skill");
             activeIndexRef.current = 0;
           } else {
             onSelect(cmd);
@@ -119,22 +136,7 @@ export function SlashMenu({ input, availableModels, onSelect, onDismiss }: Slash
   }
 
   // Model submenu
-  if (showModelSubmenu) {
-    if (filteredModels.length === 0) {
-      return (
-        <div
-          ref={menuRef}
-          className="slash-menu"
-          data-testid="slash-menu"
-          onKeyDown={handleKeyDown}
-        >
-          <div style={{ padding: "10px 16px", color: "#8E8E93", fontSize: 13 }}>
-            No models available
-          </div>
-        </div>
-      );
-    }
-
+  if (activeSubmenu === "model") {
     return (
       <div
         ref={menuRef}
@@ -150,32 +152,91 @@ export function SlashMenu({ input, availableModels, onSelect, onDismiss }: Slash
             color: "#8E8E93",
             cursor: "pointer",
           }}
-          onClick={() => setShowModelSubmenu(false)}
+          onClick={() => setActiveSubmenu(null)}
         >
           ← Back to commands
         </div>
-        {filteredModels.map((model, i) => (
-          <div
-            key={`${model.provider}/${model.id}`}
-            data-slash-item
-            data-testid={`slash-model-${model.provider}-${model.id}`}
-            onClick={() => onSelect(`model ${model.provider}/${model.id}`)}
-            style={{
-              padding: "10px 16px",
-              cursor: "pointer",
-              backgroundColor: i === activeIndexRef.current ? "#F2F2F7" : "transparent",
-              borderBottom: i < filteredModels.length - 1 ? "1px solid #F2F2F7" : "none",
-            }}
-            onMouseEnter={() => {
-              activeIndexRef.current = i;
-            }}
-          >
-            <div style={{ fontSize: 14, fontWeight: 500 }}>{model.name}</div>
-            <div style={{ fontSize: 12, color: "#8E8E93" }}>
-              {model.provider}/{model.id}
-            </div>
+        {filteredModels.length === 0 ? (
+          <div style={{ padding: "10px 16px", color: "#8E8E93", fontSize: 13 }}>
+            No models available
           </div>
-        ))}
+        ) : (
+          filteredModels.map((model, i) => (
+            <div
+              key={`${model.provider}/${model.id}`}
+              data-slash-item
+              data-testid={`slash-model-${model.provider}-${model.id}`}
+              onClick={() => onSelect(`model ${model.provider}/${model.id}`)}
+              style={{
+                padding: "10px 16px",
+                cursor: "pointer",
+                backgroundColor: i === activeIndexRef.current ? "#F2F2F7" : "transparent",
+                borderBottom: i < filteredModels.length - 1 ? "1px solid #F2F2F7" : "none",
+              }}
+              onMouseEnter={() => {
+                activeIndexRef.current = i;
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 500 }}>{model.name}</div>
+              <div style={{ fontSize: 12, color: "#8E8E93" }}>
+                {model.provider}/{model.id}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    );
+  }
+
+  // Skill submenu
+  if (activeSubmenu === "skill") {
+    return (
+      <div
+        ref={menuRef}
+        className="slash-menu"
+        data-testid="slash-menu"
+        onKeyDown={handleKeyDown}
+      >
+        <div
+          style={{
+            padding: "8px 16px",
+            borderBottom: "1px solid #F2F2F7",
+            fontSize: 12,
+            color: "#8E8E93",
+            cursor: "pointer",
+          }}
+          onClick={() => setActiveSubmenu(null)}
+        >
+          ← Back to commands
+        </div>
+        {filteredSkills.length === 0 ? (
+          <div style={{ padding: "10px 16px", color: "#8E8E93", fontSize: 13 }}>
+            No skills available
+          </div>
+        ) : (
+          filteredSkills.map((skill, i) => (
+            <div
+              key={skill.name}
+              data-slash-item
+              data-testid={`slash-skill-${skill.name}`}
+              onClick={() => onSelect(`skill:${skill.name}`)}
+              style={{
+                padding: "10px 16px",
+                cursor: "pointer",
+                backgroundColor: i === activeIndexRef.current ? "#F2F2F7" : "transparent",
+                borderBottom: i < filteredSkills.length - 1 ? "1px solid #F2F2F7" : "none",
+              }}
+              onMouseEnter={() => {
+                activeIndexRef.current = i;
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 500 }}>{skill.name}</div>
+              {skill.description && (
+                <div style={{ fontSize: 12, color: "#8E8E93" }}>{skill.description}</div>
+              )}
+            </div>
+          ))
+        )}
       </div>
     );
   }
@@ -197,7 +258,10 @@ export function SlashMenu({ input, availableModels, onSelect, onDismiss }: Slash
           data-testid={`slash-item-${cmd.name}`}
           onClick={() => {
             if (cmd.name === "model") {
-              setShowModelSubmenu(true);
+              setActiveSubmenu("model");
+              activeIndexRef.current = 0;
+            } else if (cmd.name === "skill") {
+              setActiveSubmenu("skill");
               activeIndexRef.current = 0;
             } else {
               onSelect(cmd.name);
@@ -217,7 +281,9 @@ export function SlashMenu({ input, availableModels, onSelect, onDismiss }: Slash
           <div style={{ fontSize: 12, color: "#8E8E93" }}>
             {cmd.name === "model" && availableModels.length > 0
               ? `${cmd.description} (${availableModels.length} available)`
-              : cmd.description}
+              : cmd.name === "skill" && availableSkills.length > 0
+                ? `${cmd.description} (${availableSkills.length} available)`
+                : cmd.description}
           </div>
         </div>
       ))}
