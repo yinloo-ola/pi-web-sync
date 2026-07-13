@@ -206,6 +206,12 @@ export default function (pi: ExtensionAPI) {
       try {
         const allCommands = pi.getCommands();
         console.debug(`[pi-web-sync] found ${allCommands.length} commands`);
+        // Log command sources for debugging
+        const sources = new Map<string, number>();
+        for (const cmd of allCommands) {
+          sources.set(cmd.source, (sources.get(cmd.source) ?? 0) + 1);
+        }
+        console.debug(`[pi-web-sync] command sources:`, Object.fromEntries(sources));
         const skills = allCommands
           .filter((cmd) => cmd.source === "skill")
           .map((cmd) => ({
