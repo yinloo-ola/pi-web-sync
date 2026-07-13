@@ -110,6 +110,10 @@ export default function (pi: ExtensionAPI) {
       } else {
         ctx.ui.notify("Usage: /model provider/model-id", "error");
       }
+    } else if (cmd === "compact") {
+      // Trigger compaction programmatically
+      ctx.compact();
+      ctx.ui.notify("Compacting...", "info");
     } else {
       // For other commands, send as user message with / prefix
       pi.sendUserMessage(`/${command}`);
@@ -182,6 +186,7 @@ export default function (pi: ExtensionAPI) {
       // Send available models to the web app
       try {
         const allModels = ctx.modelRegistry.getAll();
+        console.debug(`[pi-web-sync] found ${allModels.length} models`);
         const models = allModels.map((m) => ({
           id: m.id,
           provider: m.provider,
@@ -192,6 +197,7 @@ export default function (pi: ExtensionAPI) {
           sessionId: sessionId!,
           payload: { models },
         });
+        console.debug(`[pi-web-sync] sent models_list with ${models.length} models`);
       } catch (err) {
         console.debug("[pi-web-sync] failed to send models_list:", err instanceof Error ? err.message : err);
       }
@@ -199,6 +205,7 @@ export default function (pi: ExtensionAPI) {
       // Send available skills to the web app
       try {
         const allCommands = pi.getCommands();
+        console.debug(`[pi-web-sync] found ${allCommands.length} commands`);
         const skills = allCommands
           .filter((cmd) => cmd.source === "skill")
           .map((cmd) => ({
@@ -206,6 +213,7 @@ export default function (pi: ExtensionAPI) {
             description: cmd.description,
             source: cmd.source,
           }));
+        console.debug(`[pi-web-sync] found ${skills.length} skills`);
         client!.send({
           type: "skills_list",
           sessionId: sessionId!,

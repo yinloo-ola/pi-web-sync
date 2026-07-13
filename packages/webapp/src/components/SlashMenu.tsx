@@ -10,6 +10,7 @@ export interface SlashCommand {
 export const PI_COMMANDS: SlashCommand[] = [
   { name: "model", description: "Switch the active model" },
   { name: "skill", description: "Run a skill by name" },
+  { name: "compact", description: "Compact the conversation context" },
 ];
 
 interface SlashMenuProps {
