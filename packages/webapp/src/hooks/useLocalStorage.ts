@@ -13,6 +13,10 @@ function isContentDuplicate(a: ChatMessage, b: ChatMessage): boolean {
   return Math.abs(a.timestamp - b.timestamp) <= DEDUP_WINDOW_MS;
 }
 
+function hasContentDuplicate(prev: ChatMessage[], candidate: ChatMessage): boolean {
+  return prev.some((m) => isContentDuplicate(m, candidate));
+}
+
 /** Hook that persists chat messages to localStorage. Returns messages and addMessage. */
 export function useLocalStorage(sessionId: string): {
   messages: ChatMessage[];
@@ -57,7 +61,7 @@ export function useLocalStorage(sessionId: string): {
   const addMessage = useCallback(
     (msg: ChatMessage) => {
       setMessages((prev) => {
-        if (prev.some((m) => isContentDuplicate(m, msg))) {
+        if (hasContentDuplicate(prev, msg)) {
           return prev;
         }
         const next = [...prev, msg];
@@ -74,7 +78,7 @@ export function useLocalStorage(sessionId: string): {
       setMessages((prev) => {
         const seen = new Set(prev.map((m) => m.id));
         const additions = incoming.filter(
-          (m) => !seen.has(m.id) && !prev.some((p) => isContentDuplicate(p, m)),
+          (m) => !seen.has(m.id) && !hasContentDuplicate(prev, m),
         );
         if (additions.length === 0) return prev;
         const next = [...prev, ...additions].sort((a, b) => a.timestamp - b.timestamp);
