@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { WebSocket as ReconnectingWebSocket } from "partysocket";
 import type { Options as ReconnectOptions } from "partysocket/ws";
 import type { RelayMessage } from "pi-web-sync-protocol";
-import { CLOSE_DUPLICATE_WEB } from "pi-web-sync-protocol";
+import { CLOSE_DUPLICATE_WEB, buildSessionWsUrl } from "pi-web-sync-protocol";
 
 /** Connection state for the relay WebSocket. */
 export type RelayState =
@@ -121,7 +121,7 @@ export function useRelay(
     closeCountRef.current = 0;
     setState("connecting");
 
-    const wsUrl = `${relayUrl}/session/${sessionId}?client=web`;
+    const wsUrl = buildSessionWsUrl(relayUrl, sessionId, "web");
     const ws = new ReconnectingWebSocket(wsUrl, undefined, RECONNECT_OPTIONS);
     wsRef.current = ws;
 

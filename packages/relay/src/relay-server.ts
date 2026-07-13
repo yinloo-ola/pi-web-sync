@@ -13,6 +13,7 @@ import {
   CLOSE_INVALID_REQUEST,
   isOpen,
 } from "./close-codes";
+import { parseSessionWsPath } from "pi-web-sync-protocol";
 
 const PORT = parseInt(process.env.PORT ?? "8787", 10);
 
@@ -34,14 +35,14 @@ export function handleConnection(
     request.url ?? "/",
     `http://${request.headers.host ?? "localhost"}`,
   );
-  const match = url.pathname.match(/^\/session\/([^/]+)$/);
+  const parsed = parseSessionWsPath(url.pathname);
 
-  if (!match) {
+  if (!parsed) {
     ws.close(CLOSE_INVALID_REQUEST, "Invalid session path — expected /session/<id>");
     return;
   }
 
-  const sessionId = match[1];
+  const sessionId = parsed.sessionId;
   const clientType = url.searchParams.get("client");
 
   if (!clientType || !["pi", "web"].includes(clientType)) {

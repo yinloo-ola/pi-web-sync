@@ -103,3 +103,6 @@ export const CLOSE_INVALID_REQUEST = 4001;
 
 /** A second *web* client tried to join a session that already has a live one. */
 export const CLOSE_DUPLICATE_WEB = 4002;
+
+// Re-export session URL utilities for convenience.
+export { buildSessionWsUrl, parseSessionWsPath } from "./session-url";

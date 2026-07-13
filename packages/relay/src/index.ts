@@ -13,6 +13,7 @@
  */
 
 import { CLOSE_DUPLICATE_WEB, isOpen } from "./close-codes";
+import { parseSessionWsPath } from "pi-web-sync-protocol";
 
 interface Env {
   SESSION: DurableObjectNamespace;
@@ -150,13 +151,12 @@ export default {
       return new Response("ok", { status: 200 });
     }
 
-    // Extract session ID from path: /session/:id
-    const match = url.pathname.match(/^\/session\/([^/]+)$/);
-    if (!match) {
+    const parsed = parseSessionWsPath(url.pathname);
+    if (!parsed) {
       return new Response("Not found. Use /session/<session-id>", { status: 404 });
     }
 
-    const sessionId = match[1];
+    const sessionId = parsed.sessionId;
 
     // Route to Durable Object for this session
     const doId = env.SESSION.idFromName(sessionId);
