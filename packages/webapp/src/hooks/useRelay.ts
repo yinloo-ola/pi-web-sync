@@ -47,6 +47,12 @@ const RECONNECT_OPTIONS: ReconnectOptions = {
   shouldReconnectOnClose: (event) => event.code !== CLOSE_DUPLICATE_WEB,
 };
 
+export interface ModelInfo {
+  id: string;
+  provider: string;
+  name: string;
+}
+
 /** Hook that manages the relay WebSocket connection with auto-reconnect. */
 export function useRelay(
   sessionId: string,
@@ -57,6 +63,8 @@ export function useRelay(
   piStatus: PiStatus;
   /** Whether the session has ended (pi sent session_ended or no pi peer within 5s). */
   sessionEnded: boolean;
+  /** Available models from pi's registry. */
+  availableModels: ModelInfo[];
   /** Current reconnect attempt (1-based) while `state === "reconnecting"`; 0 otherwise. */
   retryAttempt: number;
   send: (msg: RelayMessage) => void;
@@ -65,6 +73,7 @@ export function useRelay(
   const [state, setState] = useState<RelayState>("connecting");
   const [piStatus, setPiStatus] = useState<PiStatus>("unknown");
   const [sessionEnded, setSessionEnded] = useState(false);
+  const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
   const [retryAttempt, setRetryAttempt] = useState(0);
 
   const wsRef = useRef<ReconnectingWebSocket | null>(null);
@@ -198,6 +207,13 @@ export function useRelay(
           return; // not forwarded to the app
         }
 
+        // Models list from pi's registry
+        if (msg.type === "models_list") {
+          const payload = msg.payload as { models: Array<{ id: string; provider: string; name: string }> };
+          setAvailableModels(payload.models ?? []);
+          return; // not forwarded to the app
+        }
+
         // sync_response means pi is alive — cancel the stale timer
         if (msg.type === "sync_response" && staleTimerRef.current) {
           clearTimeout(staleTimerRef.current);
@@ -284,5 +300,5 @@ export function useRelay(
   // Keep the heartbeat's reference to reconnect current across renders.
   reconnectRef.current = reconnect;
 
-  return { state, piStatus, sessionEnded, retryAttempt, send, reconnect };
+  return { state, piStatus, sessionEnded, availableModels, retryAttempt, send, reconnect };
 }

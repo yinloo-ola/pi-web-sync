@@ -4,6 +4,7 @@ import { MessageBubble } from "./MessageBubble";
 import { SlashMenu } from "./SlashMenu";
 import type { RelayState } from "../hooks/useRelay";
 import type { PiStatus } from "../hooks/useRelay";
+import type { ModelInfo } from "../hooks/useRelay";
 
 interface ChatProps {
   messages: ChatMessage[];
@@ -16,6 +17,8 @@ interface ChatProps {
   piStatus: PiStatus;
   /** Whether the session has ended (pi started new session or no pi peer within 5s). */
   sessionEnded: boolean;
+  /** Available models from pi's registry. */
+  availableModels: ModelInfo[];
   onReconnect: () => void;
 }
 
@@ -49,6 +52,7 @@ export function Chat({
   retryAttempt,
   piStatus,
   sessionEnded,
+  availableModels,
   onReconnect,
 }: ChatProps) {
   const [input, setInput] = useState("");
@@ -245,6 +249,7 @@ export function Chat({
         {showSlashMenu && (
           <SlashMenu
             input={input}
+            availableModels={availableModels}
             onSelect={handleSlashSelect}
             onDismiss={handleSlashDismiss}
           />

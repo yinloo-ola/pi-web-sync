@@ -38,7 +38,7 @@ The pi-web-sync webapp is responsive and usable on mobile, localStorage doesn't 
 - [0024] ~~Responsive layout~~ — mobile-friendly sizing, fluid width, thumb-friendly input ✓
 - [0025] ~~Stale URL detection~~ — Session ended banner (blocked by 0022) ✓
 - [0026] ~~Slash menu for pi commands~~ — / triggers command palette (blocked by 0022) ✓
-- [0027] Model discovery via relay — extension sends models, webapp shows them (blocked by 0022, 0026)
+- [0027] ~~Model discovery via relay~~ — extension sends models, webapp shows them (blocked by 0022, 0026) ✓
 
 ## Not yet specified
 

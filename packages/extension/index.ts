@@ -141,6 +141,23 @@ export default function (pi: ExtensionAPI) {
 
       await client.connect();
 
+      // Send available models to the web app
+      try {
+        const allModels = ctx.modelRegistry.getAll();
+        const models = allModels.map((m) => ({
+          id: m.id,
+          provider: m.provider,
+          name: m.name ?? m.id,
+        }));
+        client!.send({
+          type: "models_list",
+          sessionId: sessionId!,
+          payload: { models },
+        });
+      } catch (err) {
+        console.debug("[pi-web-sync] failed to send models_list:", err instanceof Error ? err.message : err);
+      }
+
       // Show QR code for the session URL (auto-dismisses after 10s)
       showQrCode(ctx.ui, sessionUrl);
       return true;

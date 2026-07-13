@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ModelInfo } from "../hooks/useRelay";
 
 export interface SlashCommand {
   name: string;
@@ -15,25 +16,38 @@ export const PI_COMMANDS: SlashCommand[] = [
 interface SlashMenuProps {
   /** The current input text (including the leading `/`). */
   input: string;
-  /** Called when a command is selected. The full command string is passed (e.g., "model"). */
+  /** Available models from pi's registry. */
+  availableModels: ModelInfo[];
+  /** Called when a command is selected. The full command string is passed (e.g., "model" or "model anthropic/claude-sonnet-4-5"). */
   onSelect: (command: string) => void;
   /** Called when the menu should be dismissed. */
   onDismiss: () => void;
 }
 
 /** Dropdown menu shown when the user types `/` in the input. */
-export function SlashMenu({ input, onSelect, onDismiss }: SlashMenuProps) {
+export function SlashMenu({ input, availableModels, onSelect, onDismiss }: SlashMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const activeIndexRef = useRef(0);
+  const [showModelSubmenu, setShowModelSubmenu] = useState(false);
 
-  // Filter commands by prefix (input without the leading `/`)
-  const query = input.slice(1).toLowerCase();
-  const filtered = PI_COMMANDS.filter((cmd) => cmd.name.toLowerCase().startsWith(query));
+  // Parse the input: "/model" or "/model <query>"
+  const parts = input.slice(1).split(" ");
+  const commandQuery = parts[0]?.toLowerCase() ?? "";
+  const modelQuery = parts.slice(1).join(" ").toLowerCase();
 
-  // Reset active index when filter changes
+  // Filter commands by prefix
+  const filtered = PI_COMMANDS.filter((cmd) => cmd.name.toLowerCase().startsWith(commandQuery));
+
+  // Reset active index and submenu when input changes
   useEffect(() => {
     activeIndexRef.current = 0;
-  }, [query]);
+    // Show model submenu if user typed "/model " (with space)
+    if (commandQuery === "model" && parts.length > 1) {
+      setShowModelSubmenu(true);
+    } else {
+      setShowModelSubmenu(false);
+    }
+  }, [input]);
 
   // Click outside to dismiss
   useEffect(() => {
@@ -46,37 +60,127 @@ export function SlashMenu({ input, onSelect, onDismiss }: SlashMenuProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [onDismiss]);
 
+  // Filter models by query
+  const filteredModels = availableModels.filter(
+    (m) =>
+      m.name.toLowerCase().includes(modelQuery) ||
+      m.id.toLowerCase().includes(modelQuery) ||
+      m.provider.toLowerCase().includes(modelQuery),
+  );
+
   // Keyboard navigation
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Escape") {
       e.preventDefault();
-      onDismiss();
+      if (showModelSubmenu) {
+        // Go back to command list
+        setShowModelSubmenu(false);
+      } else {
+        onDismiss();
+      }
       return;
     }
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      activeIndexRef.current = Math.min(activeIndexRef.current + 1, filtered.length - 1);
-      // Force re-render by triggering a DOM update
-      const items = menuRef.current?.querySelectorAll("[data-slash-item]");
-      items?.[activeIndexRef.current]?.scrollIntoView({ block: "nearest" });
+      const items = showModelSubmenu ? filteredModels : filtered;
+      activeIndexRef.current = Math.min(activeIndexRef.current + 1, items.length - 1);
+      const menuItems = menuRef.current?.querySelectorAll("[data-slash-item]");
+      menuItems?.[activeIndexRef.current]?.scrollIntoView({ block: "nearest" });
       return;
     }
     if (e.key === "ArrowUp") {
       e.preventDefault();
       activeIndexRef.current = Math.max(activeIndexRef.current - 1, 0);
-      const items = menuRef.current?.querySelectorAll("[data-slash-item]");
-      items?.[activeIndexRef.current]?.scrollIntoView({ block: "nearest" });
+      const menuItems = menuRef.current?.querySelectorAll("[data-slash-item]");
+      menuItems?.[activeIndexRef.current]?.scrollIntoView({ block: "nearest" });
       return;
     }
     if (e.key === "Enter") {
       e.preventDefault();
-      if (filtered.length > 0) {
-        onSelect(filtered[activeIndexRef.current].name);
+      if (showModelSubmenu) {
+        if (filteredModels.length > 0) {
+          const model = filteredModels[activeIndexRef.current];
+          onSelect(`model ${model.provider}/${model.id}`);
+        }
+      } else {
+        if (filtered.length > 0) {
+          const cmd = filtered[activeIndexRef.current].name;
+          if (cmd === "model") {
+            // Show model submenu
+            setShowModelSubmenu(true);
+            activeIndexRef.current = 0;
+          } else {
+            onSelect(cmd);
+          }
+        }
       }
       return;
     }
   }
 
+  // Model submenu
+  if (showModelSubmenu) {
+    if (filteredModels.length === 0) {
+      return (
+        <div
+          ref={menuRef}
+          className="slash-menu"
+          data-testid="slash-menu"
+          onKeyDown={handleKeyDown}
+        >
+          <div style={{ padding: "10px 16px", color: "#8E8E93", fontSize: 13 }}>
+            No models available
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        ref={menuRef}
+        className="slash-menu"
+        data-testid="slash-menu"
+        onKeyDown={handleKeyDown}
+      >
+        <div
+          style={{
+            padding: "8px 16px",
+            borderBottom: "1px solid #F2F2F7",
+            fontSize: 12,
+            color: "#8E8E93",
+            cursor: "pointer",
+          }}
+          onClick={() => setShowModelSubmenu(false)}
+        >
+          ← Back to commands
+        </div>
+        {filteredModels.map((model, i) => (
+          <div
+            key={`${model.provider}/${model.id}`}
+            data-slash-item
+            data-testid={`slash-model-${model.provider}-${model.id}`}
+            onClick={() => onSelect(`model ${model.provider}/${model.id}`)}
+            style={{
+              padding: "10px 16px",
+              cursor: "pointer",
+              backgroundColor: i === activeIndexRef.current ? "#F2F2F7" : "transparent",
+              borderBottom: i < filteredModels.length - 1 ? "1px solid #F2F2F7" : "none",
+            }}
+            onMouseEnter={() => {
+              activeIndexRef.current = i;
+            }}
+          >
+            <div style={{ fontSize: 14, fontWeight: 500 }}>{model.name}</div>
+            <div style={{ fontSize: 12, color: "#8E8E93" }}>
+              {model.provider}/{model.id}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Main command menu
   if (filtered.length === 0) return null;
 
   return (
@@ -91,7 +195,14 @@ export function SlashMenu({ input, onSelect, onDismiss }: SlashMenuProps) {
           key={cmd.name}
           data-slash-item
           data-testid={`slash-item-${cmd.name}`}
-          onClick={() => onSelect(cmd.name)}
+          onClick={() => {
+            if (cmd.name === "model") {
+              setShowModelSubmenu(true);
+              activeIndexRef.current = 0;
+            } else {
+              onSelect(cmd.name);
+            }
+          }}
           style={{
             padding: "10px 16px",
             cursor: "pointer",
@@ -103,7 +214,11 @@ export function SlashMenu({ input, onSelect, onDismiss }: SlashMenuProps) {
           }}
         >
           <div style={{ fontSize: 14, fontWeight: 500 }}>/{cmd.name}</div>
-          <div style={{ fontSize: 12, color: "#8E8E93" }}>{cmd.description}</div>
+          <div style={{ fontSize: 12, color: "#8E8E93" }}>
+            {cmd.name === "model" && availableModels.length > 0
+              ? `${cmd.description} (${availableModels.length} available)`
+              : cmd.description}
+          </div>
         </div>
       ))}
     </div>
