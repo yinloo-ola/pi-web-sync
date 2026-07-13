@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { WebSocket as ReconnectingWebSocket } from "partysocket";
 import type { Options as ReconnectOptions } from "partysocket/ws";
-import type { PromptInfo, RelayMessage } from "pi-web-sync-protocol";
+import type { PromptInfo, PromptsListPayload, RelayMessage } from "pi-web-sync-protocol";
 import { CLOSE_DUPLICATE_WEB, buildSessionWsUrl } from "pi-web-sync-protocol";
 
 /** Connection state for the relay WebSocket. */
@@ -234,7 +234,7 @@ export function useRelay(
 
         // Prompt templates list from pi
         if (msg.type === "prompts_list") {
-          const payload = msg.payload as { prompts: PromptInfo[] };
+          const payload = msg.payload as PromptsListPayload;
           console.debug("[pi-web-sync] received prompts_list:", payload.prompts?.length ?? 0, "prompts");
           setAvailablePrompts(payload.prompts ?? []);
           return; // not forwarded to the app

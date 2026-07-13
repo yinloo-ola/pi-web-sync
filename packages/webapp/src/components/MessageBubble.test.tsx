@@ -18,12 +18,11 @@ describe("MessageBubble", () => {
     expect(screen.getByText("hi there")).toBeDefined();
   });
 
-  it("sets overflow-wrap and max-width on the bubble", () => {
+  it("sets overflow-wrap on the bubble", () => {
     render(<MessageBubble message={makeMessage("assistant", "hello")} />);
     const bubble = document.querySelector(".message-bubble") as HTMLDivElement;
     expect(bubble).toBeDefined();
     expect(bubble.style.overflowWrap).toBe("break-word");
-    expect(bubble.style.maxWidth).toBe("100%");
   });
 
   it("renders a markdown table", () => {

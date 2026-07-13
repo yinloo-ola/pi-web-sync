@@ -142,7 +142,7 @@ export function substituteArgs(content: string, args: string[]): string {
 
   return content.replace(
     /\$\{(\d+):-([^}]*)\}|\$\{@:(\d+)(?::(\d+))?\}|\$(ARGUMENTS|@|\d+)/g,
-    (_match, defaultNum, defaultValue, sliceStart, sliceLength, simple) => {
+    (_match, defaultNum, defaultValue, sliceStart, sliceLength, placeholder) => {
       if (defaultNum) {
         const index = parseInt(defaultNum, 10) - 1;
         const value = args[index];
@@ -160,11 +160,11 @@ export function substituteArgs(content: string, args: string[]): string {
         return args.slice(start).join(" ");
       }
 
-      if (simple === "ARGUMENTS" || simple === "@") {
+      if (placeholder === "ARGUMENTS" || placeholder === "@") {
         return allArgs;
       }
 
-      const index = parseInt(simple, 10) - 1;
+      const index = parseInt(placeholder, 10) - 1;
       return args[index] ?? "";
     },
   );
