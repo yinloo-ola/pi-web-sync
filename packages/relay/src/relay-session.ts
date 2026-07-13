@@ -123,7 +123,7 @@ export class RelaySession {
 
   private registerHandlers(clientType: ClientType, socket: RelaySocket): void {
     socket.onMessage((data) => this.handleMessage(clientType, socket, data));
-    socket.onClose(() => this.handleClose(clientType));
+    socket.onClose(() => this.handleClose(clientType, socket));
   }
 
   private handleMessage(clientType: ClientType, socket: RelaySocket, data: string): void {
@@ -149,8 +149,13 @@ export class RelaySession {
     }
   }
 
-  private handleClose(clientType: ClientType): void {
-    // Null out the slot.
+  private handleClose(clientType: ClientType, closingSocket: RelaySocket): void {
+    // Only null the slot if it still points at the closing socket.
+    // If the slot was replaced (e.g. same-type reconnect) before the close
+    // event arrived, don't erase the replacement.
+    const current = clientType === "pi" ? this.pi : this.web;
+    if (current !== closingSocket) return;
+
     if (clientType === "pi") {
       this.pi = null;
     } else {

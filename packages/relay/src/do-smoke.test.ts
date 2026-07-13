@@ -1,5 +1,8 @@
+/// <reference types="@cloudflare/workers-types" />
+
 import { describe, it, expect } from "vitest";
 import { env } from "cloudflare:test";
+import { CLOSE_DUPLICATE_WEB } from "pi-web-sync-protocol";
 
 /**
  * Miniflare smoke test for the production Durable Object.
@@ -11,46 +14,88 @@ import { env } from "cloudflare:test";
  * after ticket 0041 moved all session policy into RelaySession.
  */
 
+const SESSION = "smoke";
+
 describe("SessionDO smoke test", () => {
-  it("accepts pi and web connections via WebSocket upgrade", async () => {
-    const stub = env.SESSION.get(env.SESSION.idFromName("test-connect"));
+  it("forwards a user_message from pi to web through the SessionDO", async () => {
+    const stub = env.SESSION.get(env.SESSION.idFromName(SESSION + "-forward"));
 
-    // Pi connects
-    const piReq = new Request("http://fake/session/test-connect?client=pi", {
-      headers: { Upgrade: "websocket" },
-    });
-    const piRes = await stub.fetch(piReq);
+    const piRes = await stub.fetch(
+      new Request(`http://fake/session/${SESSION}-forward?client=pi`, {
+        headers: { Upgrade: "websocket" },
+      }),
+    );
+    const webRes = await stub.fetch(
+      new Request(`http://fake/session/${SESSION}-forward?client=web`, {
+        headers: { Upgrade: "websocket" },
+      }),
+    );
+
     expect(piRes.status).toBe(101);
-    expect(piRes.webSocket).toBeDefined();
-
-    // Web connects
-    const webReq = new Request("http://fake/session/test-connect?client=web", {
-      headers: { Upgrade: "websocket" },
-    });
-    const webRes = await stub.fetch(webReq);
     expect(webRes.status).toBe(101);
+    expect(piRes.webSocket).toBeDefined();
     expect(webRes.webSocket).toBeDefined();
+
+    const piWs = piRes.webSocket!;
+    const webWs = webRes.webSocket!;
+
+    piWs.accept();
+    webWs.accept();
+
+    // Register listeners before any send.
+    const webMsgs: string[] = [];
+    webWs.addEventListener("message", (e) => webMsgs.push(e.data as string));
+
+    // Wait for fanout messages to arrive.
+    await new Promise((r) => setTimeout(r, 100));
+
+    // Pi sends a user_message.
+    const msg = JSON.stringify({
+      type: "user_message",
+      sessionId: SESSION + "-forward",
+      payload: { role: "user", text: "hello" },
+    });
+    piWs.send(msg);
+
+    // Wait for web to receive it.
+    await new Promise((r) => setTimeout(r, 100));
+    expect(webMsgs.length).toBeGreaterThan(0);
+    // The last message in the buffer should be the forwarded message.
+    const forwarded = JSON.parse(webMsgs[webMsgs.length - 1]);
+    expect(forwarded.type).toBe("user_message");
+    expect(forwarded.payload.text).toBe("hello");
   });
 
-  it("rejects a second web client (CLOSE_DUPLICATE_WEB)", async () => {
-    const stub = env.SESSION.get(env.SESSION.idFromName("test-reject"));
+  it("rejects a second web client with CLOSE_DUPLICATE_WEB", async () => {
+    const stub = env.SESSION.get(env.SESSION.idFromName(SESSION + "-reject"));
 
-    // First web connects successfully
-    const web1Req = new Request("http://fake/session/test-reject?client=web", {
-      headers: { Upgrade: "websocket" },
-    });
-    const web1Res = await stub.fetch(web1Req);
+    const web1Res = await stub.fetch(
+      new Request(`http://fake/session/${SESSION}-reject?client=web`, {
+        headers: { Upgrade: "websocket" },
+      }),
+    );
     expect(web1Res.status).toBe(101);
+    const web1Ws = web1Res.webSocket!;
+    web1Ws.accept();
 
-    // Second web — the DO handles this: the DO creates a WebSocketPair,
-    // accepts the server side, then RelaySession.addClient() returns false.
-    // The DO closes the server side with CLOSE_DUPLICATE_WEB and returns
-    // a response with status 101 (the WebSocketPair is already established).
-    // The server-side close propagates to the client side.
-    const web2Req = new Request("http://fake/session/test-reject?client=web", {
-      headers: { Upgrade: "websocket" },
-    });
-    const web2Res = await stub.fetch(web2Req);
+    const web2Res = await stub.fetch(
+      new Request(`http://fake/session/${SESSION}-reject?client=web`, {
+        headers: { Upgrade: "websocket" },
+      }),
+    );
     expect(web2Res.status).toBe(101);
+    const web2Ws = web2Res.webSocket!;
+    web2Ws.accept();
+
+    // Register close listener on web2 and wait.
+    const closeCode = await new Promise<number | null>((resolve) => {
+      web2Ws.addEventListener("close", (e) => resolve(e.code));
+      // Timeout fallback
+      setTimeout(() => resolve(null), 2000);
+    });
+
+    expect(closeCode).toBe(CLOSE_DUPLICATE_WEB);
+
+    web1Ws.close();
   });
-});
+}, 10_000);

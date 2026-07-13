@@ -21,7 +21,3 @@ export type {
   SessionEndedPayload,
 } from "pi-web-sync-protocol";
 
-export {
-  CLOSE_DUPLICATE_WEB,
-  CLOSE_INVALID_REQUEST,
-} from "pi-web-sync-protocol";
