@@ -3,7 +3,10 @@ import { homedir } from "os";
 import { join } from "path";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import type { AutocompleteItem } from "@earendil-works/pi-tui";
+interface AutocompleteItem {
+  value: string;
+  label: string;
+}
 import QRCode from "qrcode";
 import { RelayClient, MAX_RETRIES, type ConnectionState } from "./relay-client";
 import type { RelayMessage } from "./types";
