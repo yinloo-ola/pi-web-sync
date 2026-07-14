@@ -14,7 +14,7 @@ Sync your [pi](https://github.com/earendil-works/pi-coding-agent) coding session
 This project has three components: a pi extension, a WebSocket relay, and a web app. You self-host the relay and web app, and configure the extension to point at them.
 
 ```bash
-pi install pi-web-sync
+pi install npm:pi-web-sync
 ```
 
 Configure the extension (pick one):
@@ -139,7 +139,7 @@ No build-time configuration needed — the relay URL travels with each share lin
 ### Configure the extension
 
 ```bash
-pi install pi-web-sync
+pi install npm:pi-web-sync
 ```
 
 **Step-by-step:**

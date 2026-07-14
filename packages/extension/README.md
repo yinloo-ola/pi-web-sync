@@ -5,7 +5,7 @@ Sync your [pi](https://github.com/earendil-works/pi-coding-agent) coding session
 ## Install
 
 ```bash
-pi install pi-web-sync
+pi install npm:pi-web-sync
 ```
 
 ## Configuration
