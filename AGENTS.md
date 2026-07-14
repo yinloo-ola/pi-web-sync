@@ -12,4 +12,4 @@ Five canonical roles mapped to label strings. See `docs/agents/triage-labels.md`
 
 ### Domain docs
 
-Single-context — one `CONTEXT.md` at root + ADRs in `docs/plans/completed/adr/`. See `docs/agents/domain.md`.
+Single-context — one `CONTEXT.md` at root + ADRs in `docs/plans/adr/`. See `docs/agents/domain.md`.

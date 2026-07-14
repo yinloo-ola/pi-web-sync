@@ -6,7 +6,7 @@ parent: null
 blocked_by: []
 assigned: null
 labels: [ready-for-agent]
-status: open
+status: closed
 ---
 
 ## Problem Statement
@@ -144,3 +144,13 @@ No ADRs are contradicted.
   commands; the existing `PI_COMMANDS` entries (`model`, `skill`, etc.) are
   "PiCommand kinds" — a different concept. This distinction is invisible to
   users but important during implementation.
+## Resolution
+
+Implemented in commit `92fe6c0`. Added `commands_list` relay message type
+(protocol), extension push-on-connect via a shared `sendCommandsBySource`
+helper (dedupes the skills/commands filter-by-source shape), `availableCommands`
+state in `useRelay`, and a `/command` slash menu entry + submenu in `SlashMenu`.
+TDD at the SlashMenu seam (7 new tests mirroring the skill submenu). Code-review
+run (standards + spec axes): no ADR violations; one scope-creep flag was a false
+positive (count badge matches existing skill/prompt/model entries). All packages
+green.

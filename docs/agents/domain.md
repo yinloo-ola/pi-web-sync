@@ -5,7 +5,7 @@ How the engineering skills should consume this repo's domain documentation when 
 ## Before exploring, read these
 
 - **`CONTEXT.md`** at the repo root (when it exists — created lazily by `/domain-modeling`)
-- **`docs/plans/completed/adr/`** — read ADRs that touch the area you're about to work in
+- **`docs/plans/adr/`** — read ADRs that touch the area you're about to work in
 
 If these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The `/domain-modeling` skill creates them lazily when terms or decisions actually get resolved.
 
@@ -18,7 +18,7 @@ Single-context repo:
 ├── CONTEXT.md                          ← domain glossary (created by /domain-modeling)
 ├── docs/
 │   ├── agents/                         ← skill config (this file, issue-tracker, triage-labels)
-│   └── plans/completed/adr/            ← architectural decisions
+│   └── plans/adr/            ← architectural decisions
 │       ├── 001-websocket-relay.md
 │       ├── 002-session-id-as-secret.md
 │       └── 003-npm-package-extension.md
