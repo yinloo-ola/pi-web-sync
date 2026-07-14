@@ -108,14 +108,41 @@ export default function (pi: ExtensionAPI) {
     }
   }
 
-  /** Send models and skills to the web app. */
-  function sendModelsAndSkills(
+  /** Send commands of a given source to the web app.
+   *  Shared by skills (source="skill") and extension commands (source="extension"). */
+  function sendCommandsBySource(
     pi: ExtensionAPI,
+    client: RelayClient,
+    sessionId: string,
+    source: string,
+    messageType: "skills_list" | "commands_list",
+    payloadKey: "skills" | "commands",
+  ): void {
+    try {
+      const allCommands = pi.getCommands();
+      const items = allCommands
+        .filter((cmd) => cmd.source === source)
+        .map((cmd) => ({
+          name: cmd.name,
+          description: cmd.description,
+          source: cmd.source,
+        }));
+      client.send({
+        type: messageType,
+        sessionId,
+        payload: { [payloadKey]: items },
+      });
+    } catch (err) {
+      console.warn(`[pi-web-sync] failed to send ${messageType}:`, err instanceof Error ? err.message : err);
+    }
+  }
+
+  /** Send models to the web app. */
+  function sendModels(
     ctx: ExtensionCommandContext,
     client: RelayClient,
     sessionId: string,
   ): void {
-    // Send available models
     try {
       const allModels = ctx.modelRegistry.getAll();
       const models = allModels.map((m) => ({
@@ -130,25 +157,6 @@ export default function (pi: ExtensionAPI) {
       });
     } catch (err) {
       console.warn("[pi-web-sync] failed to send models_list:", err instanceof Error ? err.message : err);
-    }
-
-    // Send available skills
-    try {
-      const allCommands = pi.getCommands();
-      const skills = allCommands
-        .filter((cmd) => cmd.source === "skill")
-        .map((cmd) => ({
-          name: cmd.name,
-          description: cmd.description,
-          source: cmd.source,
-        }));
-      client.send({
-        type: "skills_list",
-        sessionId,
-        payload: { skills },
-      });
-    } catch (err) {
-      console.warn("[pi-web-sync] failed to send skills_list:", err instanceof Error ? err.message : err);
     }
   }
 
@@ -211,9 +219,11 @@ export default function (pi: ExtensionAPI) {
             payload: { messages },
           });
 
-          // Send models, skills, and prompts after sync_response (webapp is ready)
-          sendModelsAndSkills(pi, ctx, client!, sessionId!);
+          // Send models, skills, prompts, and commands after sync_response (webapp is ready)
+          sendModels(ctx, client!, sessionId!);
+          sendCommandsBySource(pi, client!, sessionId!, "skill", "skills_list", "skills");
           sendPromptsList(ctx, client!, sessionId!);
+          sendCommandsBySource(pi, client!, sessionId!, "extension", "commands_list", "commands");
         } catch (err) {
           console.warn("[pi-web-sync] sync_response failed:", err instanceof Error ? err.message : err);
         }

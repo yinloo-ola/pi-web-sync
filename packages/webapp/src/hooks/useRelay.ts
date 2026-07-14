@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { WebSocket as ReconnectingWebSocket } from "partysocket";
 import type { Options as ReconnectOptions } from "partysocket/ws";
-import type { PromptInfo, PromptsListPayload, RelayMessage } from "pi-web-sync-protocol";
+import type { PromptInfo, PromptsListPayload, CommandInfo, CommandsListPayload, RelayMessage } from "pi-web-sync-protocol";
 import { CLOSE_DUPLICATE_WEB, buildSessionWsUrl } from "pi-web-sync-protocol";
 
 /** Connection state for the relay WebSocket. */
@@ -55,6 +55,7 @@ export interface SkillInfo {
 }
 
 export type { PromptInfo };
+export type { CommandInfo };
 
 /** Hook that manages the relay WebSocket connection with auto-reconnect. */
 export function useRelay(
@@ -72,6 +73,8 @@ export function useRelay(
   availableSkills: SkillInfo[];
   /** Available prompt templates from pi. */
   availablePrompts: PromptInfo[];
+  /** Available extension commands from pi's command registry. */
+  availableCommands: CommandInfo[];
   /** Current reconnect attempt (1-based) while `state === "reconnecting"`; 0 otherwise. */
   retryAttempt: number;
   send: (msg: RelayMessage) => void;
@@ -83,6 +86,7 @@ export function useRelay(
   const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
   const [availableSkills, setAvailableSkills] = useState<SkillInfo[]>([]);
   const [availablePrompts, setAvailablePrompts] = useState<PromptInfo[]>([]);
+  const [availableCommands, setAvailableCommands] = useState<CommandInfo[]>([]);
   const [retryAttempt, setRetryAttempt] = useState(0);
 
   const wsRef = useRef<ReconnectingWebSocket | null>(null);
@@ -240,6 +244,14 @@ export function useRelay(
           return; // not forwarded to the app
         }
 
+        // Extension commands list from pi's command registry
+        if (msg.type === "commands_list") {
+          const payload = msg.payload as unknown as CommandsListPayload;
+          console.debug("[pi-web-sync] received commands_list:", payload.commands?.length ?? 0, "commands");
+          setAvailableCommands(payload.commands ?? []);
+          return; // not forwarded to the app
+        }
+
         // sync_response means pi is alive — cancel the stale timer
         if (msg.type === "sync_response" && staleTimerRef.current) {
           clearTimeout(staleTimerRef.current);
@@ -326,5 +338,5 @@ export function useRelay(
   // Keep the heartbeat's reference to reconnect current across renders.
   reconnectRef.current = reconnect;
 
-  return { state, piStatus, sessionEnded, availableModels, availableSkills, availablePrompts, retryAttempt, send, reconnect };
+  return { state, piStatus, sessionEnded, availableModels, availableSkills, availablePrompts, availableCommands, retryAttempt, send, reconnect };
 }

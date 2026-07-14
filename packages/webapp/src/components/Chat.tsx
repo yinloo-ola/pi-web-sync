@@ -2,7 +2,7 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import type { ChatMessage } from "../types";
 import { MessageBubble } from "./MessageBubble";
 import { SlashMenu } from "./SlashMenu";
-import type { RelayState, PiStatus, ModelInfo, SkillInfo, PromptInfo } from "../hooks/useRelay";
+import type { RelayState, PiStatus, ModelInfo, SkillInfo, PromptInfo, CommandInfo } from "../hooks/useRelay";
 
 interface ChatProps {
   messages: ChatMessage[];
@@ -21,6 +21,8 @@ interface ChatProps {
   availableSkills: SkillInfo[];
   /** Available prompt templates from pi. */
   availablePrompts: PromptInfo[];
+  /** Available extension commands from pi's command registry. */
+  availableCommands: CommandInfo[];
   onReconnect: () => void;
 }
 
@@ -57,6 +59,7 @@ export function Chat({
   availableModels,
   availableSkills,
   availablePrompts,
+  availableCommands,
   onReconnect,
 }: ChatProps) {
   const [input, setInput] = useState("");
@@ -264,6 +267,7 @@ export function Chat({
             availableModels={availableModels}
             availableSkills={availableSkills}
             availablePrompts={availablePrompts}
+            availableCommands={availableCommands}
             onSelect={handleSlashSelect}
             onFillInput={handleFillInput}
             onDismiss={handleSlashDismiss}
