@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { SlashMenu, PI_COMMANDS } from "./SlashMenu";
-import type { ModelInfo, SkillInfo, PromptInfo, CommandInfo } from "../hooks/useRelay";
+import type { ModelInfo, SkillInfo, PromptInfo } from "../hooks/useRelay";
 
 const EMPTY_MODELS: ModelInfo[] = [];
 const EMPTY_SKILLS: SkillInfo[] = [];
@@ -24,19 +24,12 @@ const SAMPLE_SKILLS: SkillInfo[] = [
   { name: "tdd", description: "Test-driven development", source: "skill" },
 ];
 
-const SAMPLE_COMMANDS: CommandInfo[] = [
-  { name: "web-sync", description: "Sync pi session with web app", source: "extension" },
-  { name: "review", description: "Review code changes", source: "extension" },
-  { name: "deploy", description: "Deploy to production", source: "extension" },
-];
-
 function renderSlashMenu(props: Partial<Parameters<typeof SlashMenu>[0]> = {}) {
   const defaults = {
     input: "/",
     availableModels: EMPTY_MODELS,
     availableSkills: EMPTY_SKILLS,
     availablePrompts: [] as PromptInfo[],
-    availableCommands: [] as CommandInfo[],
     onSelect: vi.fn(),
     onFillInput: vi.fn(),
     onDismiss: vi.fn(),
@@ -79,7 +72,7 @@ describe("SlashMenu", () => {
     fireEvent.click(screen.getByTestId("slash-item-model"));
     fireEvent.click(screen.getByTestId("slash-model-anthropic-claude-sonnet-4-5"));
 
-    expect(onSelect).toHaveBeenCalledWith("model anthropic/claude-sonnet-4-5");
+    expect(onSelect).toHaveBeenCalledWith("/model anthropic/claude-sonnet-4-5");
   });
 
   it("calls onDismiss when Escape is pressed", () => {
@@ -159,7 +152,7 @@ describe("SlashMenu", () => {
 
       fireEvent.click(screen.getByTestId("slash-model-anthropic-claude-sonnet-4-5"));
 
-      expect(onSelect).toHaveBeenCalledWith("model anthropic/claude-sonnet-4-5");
+      expect(onSelect).toHaveBeenCalledWith("/model anthropic/claude-sonnet-4-5");
     });
 
     it("shows 'No models available' when models list is empty", () => {
@@ -309,73 +302,19 @@ describe("SlashMenu", () => {
     });
   });
 
-  describe("command submenu", () => {
-    it("shows command entry in the main menu", () => {
+  describe("command entry removed (ticket 0052)", () => {
+    it("does NOT render the /command entry in the main menu", () => {
       renderSlashMenu({ input: "/" });
 
-      expect(screen.getByTestId("slash-item-command")).toBeDefined();
+      expect(screen.queryByTestId("slash-item-command")).toBeNull();
     });
 
-    it("shows command submenu when /command is selected", () => {
-      renderSlashMenu({
-        input: "/command ",
-        availableCommands: SAMPLE_COMMANDS,
-      });
-
-      expect(screen.getByTestId("slash-menu")).toBeDefined();
-      expect(screen.getByTestId("slash-command-web-sync")).toBeDefined();
-      expect(screen.getByTestId("slash-command-review")).toBeDefined();
-      expect(screen.getByTestId("slash-command-deploy")).toBeDefined();
-    });
-
-    it("filters commands by query", () => {
-      renderSlashMenu({
-        input: "/command rev",
-        availableCommands: SAMPLE_COMMANDS,
-      });
-
-      expect(screen.getByTestId("slash-command-review")).toBeDefined();
-      expect(screen.queryByTestId("slash-command-web-sync")).toBeNull();
-    });
-
-    it("fills input with the command for appending arguments", () => {
-      const onFillInput = vi.fn();
-      renderSlashMenu({
-        input: "/command ",
-        availableCommands: SAMPLE_COMMANDS,
-        onFillInput,
-      });
-
-      fireEvent.click(screen.getByTestId("slash-command-web-sync"));
-
-      expect(onFillInput).toHaveBeenCalledWith("/web-sync ");
-    });
-
-    it("shows 'No commands available' when commands list is empty", () => {
+    it("does NOT show a command submenu even when commands are available", () => {
       renderSlashMenu({ input: "/command " });
 
-      expect(screen.getByText("No commands available")).toBeDefined();
-    });
-
-    it("goes back to commands when clicking 'Back to commands'", () => {
-      renderSlashMenu({
-        input: "/command ",
-        availableCommands: SAMPLE_COMMANDS,
-      });
-
-      fireEvent.click(screen.getByText("← Back to commands"));
-
-      // Should show main command menu again
-      expect(screen.getByTestId("slash-item-command")).toBeDefined();
-    });
-
-    it("shows command count in command description", () => {
-      renderSlashMenu({
-        input: "/",
-        availableCommands: SAMPLE_COMMANDS,
-      });
-
-      expect(screen.getByText("List extension-registered commands (3 available)")).toBeDefined();
+      // No submenu items, no back link — typing /command yields no menu.
+      expect(screen.queryByTestId("slash-menu")).toBeNull();
+      expect(screen.queryByTestId("slash-command-web-sync")).toBeNull();
     });
   });
 });

@@ -80,6 +80,46 @@ describe("parsePiCommand", () => {
     });
   });
 
+  describe("bare prompt names (ticket 0052)", () => {
+    // The webapp slash menu sends a bare prompt name (e.g. "commit fix the
+    // bug") — no "prompt:" prefix. parsePiCommand recognizes it as a prompt
+    // command ONLY when the name is in the provided prompt-names set, so an
+    // unknown bare name still falls through to an ordinary user message.
+    it("recognizes a bare prompt name when it is in the prompt-names set", () => {
+      expect(parsePiCommand("commit", ["commit", "review"])).toEqual({
+        kind: "prompt",
+        name: "commit",
+      });
+    });
+
+    it("recognizes a bare prompt name with args", () => {
+      expect(parsePiCommand("commit fix the bug", ["commit"])).toEqual({
+        kind: "prompt",
+        name: "commit",
+        args: "fix the bug",
+      });
+    });
+
+    it("does NOT recognize a bare name that is not a registered prompt (falls through to null)", () => {
+      expect(parsePiCommand("commit", [])).toBeNull();
+      expect(parsePiCommand("commit", ["review"])).toBeNull();
+    });
+
+    it("does not need the prompt-names set when the prompt: prefix is used", () => {
+      expect(parsePiCommand("prompt:commit fix the bug")).toEqual({
+        kind: "prompt",
+        name: "commit",
+        args: "fix the bug",
+      });
+    });
+
+    it("does not shadow real commands even if a prompt shares their name", () => {
+      // "compact" is a real command; even if a prompt named "compact" exists,
+      // the built-in command wins.
+      expect(parsePiCommand("compact", ["compact"])).toEqual({ kind: "compact" });
+    });
+  });
+
   describe("unknown / unparseable commands", () => {
     it("returns null for totally unknown commands", () => {
       expect(parsePiCommand("foo bar")).toBeNull();
@@ -87,10 +127,7 @@ describe("parsePiCommand", () => {
       expect(parsePiCommand("model")).toBeNull(); // model without args
     });
 
-    // CURRENT behaviour (ticket 0050): a bare prompt name in the form the
-    // webapp menu sends ("/commit") is NOT recognized → null → the webapp
-    // falls through to a user_message. Ticket 0052 changes this routing.
-    it("returns null for a bare prompt name (webapp menu form) — current behaviour", () => {
+    it("returns null for a bare unknown name with no prompt-names set", () => {
       expect(parsePiCommand("commit")).toBeNull();
       expect(parsePiCommand("commit fix the bug")).toBeNull();
     });

@@ -23,8 +23,19 @@ export type PiCommand =
  * strings (missing slash) and empty skill names now return `null` and are
  * sent as ordinary user messages instead of producing degenerate calls —
  * an improvement over the original handler.
+ *
+ * Ticket #0052: a **bare prompt name** (the form the webapp slash menu
+ * sends, e.g. `"commit fix the bug"`) is recognized as a prompt command
+ * when the name is in `promptNames`. Built-in commands (`model`,
+ * `compact`, `skill:`, `prompt:`) always take precedence over a bare name,
+ * so a prompt that happens to share a built-in's name cannot shadow it.
+ * An unknown bare name still returns `null` and is sent as an ordinary
+ * user message.
  */
-export function parsePiCommand(input: string): PiCommand | null {
+export function parsePiCommand(
+  input: string,
+  promptNames?: readonly string[],
+): PiCommand | null {
   const parts = input.split(" ");
   const cmd = parts[0];
   const args = parts.slice(1).join(" ");
@@ -66,6 +77,17 @@ export function parsePiCommand(input: string): PiCommand | null {
     return {
       kind: "prompt",
       name,
+      ...(args ? { args } : {}),
+    };
+  }
+
+  // Bare prompt name (webapp slash-menu form, e.g. "commit fix the bug").
+  // Only recognized when the name is a registered prompt template; built-in
+  // commands above have already been tried, so this never shadows them.
+  if (cmd && promptNames?.includes(cmd)) {
+    return {
+      kind: "prompt",
+      name: cmd,
       ...(args ? { args } : {}),
     };
   }

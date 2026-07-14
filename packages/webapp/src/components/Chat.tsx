@@ -2,7 +2,7 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import type { ChatMessage } from "../types";
 import { MessageBubble } from "./MessageBubble";
 import { SlashMenu } from "./SlashMenu";
-import type { RelayState, PiStatus, ModelInfo, SkillInfo, PromptInfo, CommandInfo } from "../hooks/useRelay";
+import type { RelayState, PiStatus, ModelInfo, SkillInfo, PromptInfo } from "../hooks/useRelay";
 
 interface ChatProps {
   messages: ChatMessage[];
@@ -21,8 +21,6 @@ interface ChatProps {
   availableSkills: SkillInfo[];
   /** Available prompt templates from pi. */
   availablePrompts: PromptInfo[];
-  /** Available extension commands from pi's command registry. */
-  availableCommands: CommandInfo[];
   onReconnect: () => void;
 }
 
@@ -59,7 +57,6 @@ export function Chat({
   availableModels,
   availableSkills,
   availablePrompts,
-  availableCommands,
   onReconnect,
 }: ChatProps) {
   const [input, setInput] = useState("");
@@ -114,14 +111,12 @@ export function Chat({
     e.preventDefault();
     const text = input.trim();
     if (!text) return;
-    // If input starts with /, treat it as a command (send full command string)
+    // Slash-prefixed input is routed as a command (with its leading `/`), so
+    // the single routing decision lives in App.handleSendCommand.
     if (text.startsWith("/")) {
-      const cmd = text.slice(1); // Remove leading /
-      if (cmd) {
-        onSendCommand(cmd);
-        setInput("");
-        return;
-      }
+      onSendCommand(text);
+      setInput("");
+      return;
     }
     onSendMessage(text);
     setInput("");
@@ -267,7 +262,6 @@ export function Chat({
             availableModels={availableModels}
             availableSkills={availableSkills}
             availablePrompts={availablePrompts}
-            availableCommands={availableCommands}
             onSelect={handleSlashSelect}
             onFillInput={handleFillInput}
             onDismiss={handleSlashDismiss}

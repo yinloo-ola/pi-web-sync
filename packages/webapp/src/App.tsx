@@ -69,7 +69,7 @@ export default function App() {
     [addMessage, mergeMessages],
   );
 
-  const { state, piStatus, sessionEnded, availableModels, availableSkills, availablePrompts, availableCommands, retryAttempt, send, reconnect } = useRelay(
+  const { state, piStatus, sessionEnded, availableModels, availableSkills, availablePrompts, retryAttempt, send, reconnect } = useRelay(
     sessionId,
     RELAY_URL,
     handleMessage,
@@ -103,24 +103,28 @@ export default function App() {
 
   const handleSendCommand = useCallback(
     (command: string) => {
-      // Check if the first token matches a known prompt template name
-      const firstToken = command.split(" ")[0];
-      const matchedPrompt = availablePrompts.find((p) => p.name === firstToken);
+      // Single routing path (ticket 0052): the command string arrives with
+      // its leading "/" (from the slash menu or a typed "/..." input). Strip
+      // it once here, then parse into a typed PiCommand. Passing the known
+      // prompt names lets a bare prompt name (the form the slash menu sends)
+      // be recognized as a prompt command.
+      const stripped = command.startsWith("/") ? command.slice(1) : command;
+      const parsed = parsePiCommand(
+        stripped,
+        availablePrompts.map((p) => p.name),
+      );
 
-      let parsed = matchedPrompt
-        ? ({ kind: "prompt", name: matchedPrompt.name, args: command.slice(firstToken.length + 1) || undefined } as const)
-        : parsePiCommand(command);
+      // Display text is the command as the user saw it (with the slash).
+      const text = `/${stripped}`;
+      addMessage({
+        id: `${sessionId}-${Date.now()}`,
+        role: "user",
+        text,
+        timestamp: Date.now(),
+      });
 
       if (!parsed) {
-        // Unparseable — send as an ordinary user message (the extension's
-        // previous else-branch would have done sendUserMessage("/<command>")).
-        const text = `/${command}`;
-        addMessage({
-          id: `${sessionId}-${Date.now()}`,
-          role: "user",
-          text,
-          timestamp: Date.now(),
-        });
+        // Unparseable — send as an ordinary user message.
         send({
           type: "user_message",
           sessionId,
@@ -129,15 +133,7 @@ export default function App() {
         return;
       }
 
-      // Show the command as a user message for visibility
-      const text = `/${command}`;
-      addMessage({
-        id: `${sessionId}-${Date.now()}`,
-        role: "user",
-        text,
-        timestamp: Date.now(),
-      });
-      // Send typed PiCommand as pi_command payload
+      // Send typed PiCommand as pi_command payload.
       send({
         type: "pi_command",
         sessionId,
@@ -160,7 +156,6 @@ export default function App() {
       availableModels={availableModels}
       availableSkills={availableSkills}
       availablePrompts={availablePrompts}
-      availableCommands={availableCommands}
       onReconnect={reconnect}
     />
   );

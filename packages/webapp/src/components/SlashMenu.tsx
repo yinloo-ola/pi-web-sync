@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { ModelInfo, SkillInfo, PromptInfo, CommandInfo } from "../hooks/useRelay";
+import type { ModelInfo, SkillInfo, PromptInfo } from "../hooks/useRelay";
 
 export interface SlashCommand {
   name: string;
@@ -11,7 +11,6 @@ export const PI_COMMANDS: SlashCommand[] = [
   { name: "model", description: "Switch the active model" },
   { name: "skill", description: "Run a skill by name" },
   { name: "prompt", description: "Send a prompt template" },
-  { name: "command", description: "List extension-registered commands" },
   { name: "compact", description: "Compact the conversation context" },
 ];
 
@@ -24,8 +23,6 @@ interface SlashMenuProps {
   availableSkills: SkillInfo[];
   /** Available prompt templates from pi. */
   availablePrompts: PromptInfo[];
-  /** Available extension commands from pi's command registry. */
-  availableCommands: CommandInfo[];
   /** Called when a command should be sent immediately (e.g., model switch). */
   onSelect: (command: string) => void;
   /** Called when a command should be filled in the input (e.g., skill with instructions). */
@@ -35,10 +32,10 @@ interface SlashMenuProps {
 }
 
 /** Dropdown menu shown when the user types `/` in the input. */
-export function SlashMenu({ input, availableModels, availableSkills, availablePrompts, availableCommands, onSelect, onFillInput, onDismiss }: SlashMenuProps) {
+export function SlashMenu({ input, availableModels, availableSkills, availablePrompts, onSelect, onFillInput, onDismiss }: SlashMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const activeIndexRef = useRef(0);
-  const [activeSubmenu, setActiveSubmenu] = useState<"model" | "skill" | "prompt" | "command" | null>(null);
+  const [activeSubmenu, setActiveSubmenu] = useState<"model" | "skill" | "prompt" | null>(null);
 
   // Parse the input: "/model" or "/model <query>"
   const parts = input.slice(1).split(" ");
@@ -58,9 +55,7 @@ export function SlashMenu({ input, availableModels, availableSkills, availablePr
       setActiveSubmenu("skill");
     } else if (commandQuery === "prompt" && parts.length > 1) {
       setActiveSubmenu("prompt");
-    } else if (commandQuery === "command" && parts.length > 1) {
-      setActiveSubmenu("command");
-    } else if (commandQuery !== "model" && commandQuery !== "skill" && commandQuery !== "prompt" && commandQuery !== "command") {
+    } else if (commandQuery !== "model" && commandQuery !== "skill" && commandQuery !== "prompt") {
       setActiveSubmenu(null);
     }
   }, [input]);
@@ -98,13 +93,6 @@ export function SlashMenu({ input, availableModels, availableSkills, availablePr
       p.description.toLowerCase().includes(submenuQuery),
   );
 
-  // Filter commands by query
-  const filteredCommands = availableCommands.filter(
-    (c) =>
-      c.name.toLowerCase().includes(submenuQuery) ||
-      c.description?.toLowerCase().includes(submenuQuery),
-  );
-
   // Keyboard navigation
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Escape") {
@@ -125,9 +113,7 @@ export function SlashMenu({ input, availableModels, availableSkills, availablePr
           ? filteredSkills
           : activeSubmenu === "prompt"
             ? filteredPrompts
-            : activeSubmenu === "command"
-              ? filteredCommands
-              : filtered;
+            : filtered;
       activeIndexRef.current = Math.min(activeIndexRef.current + 1, items.length - 1);
       const menuItems = menuRef.current?.querySelectorAll("[data-slash-item]");
       menuItems?.[activeIndexRef.current]?.scrollIntoView?.({ block: "nearest" });
@@ -145,7 +131,7 @@ export function SlashMenu({ input, availableModels, availableSkills, availablePr
       if (activeSubmenu === "model") {
         if (filteredModels.length > 0) {
           const model = filteredModels[activeIndexRef.current];
-          onSelect(`model ${model.provider}/${model.id}`);
+          onSelect(`/model ${model.provider}/${model.id}`);
         }
       } else if (activeSubmenu === "skill") {
         if (filteredSkills.length > 0) {
@@ -156,11 +142,6 @@ export function SlashMenu({ input, availableModels, availableSkills, availablePr
         if (filteredPrompts.length > 0) {
           const prompt = filteredPrompts[activeIndexRef.current];
           onFillInput(`/${prompt.name} `);
-        }
-      } else if (activeSubmenu === "command") {
-        if (filteredCommands.length > 0) {
-          const command = filteredCommands[activeIndexRef.current];
-          onFillInput(`/${command.name} `);
         }
       } else {
         if (filtered.length > 0) {
@@ -174,11 +155,8 @@ export function SlashMenu({ input, availableModels, availableSkills, availablePr
           } else if (cmd === "prompt") {
             setActiveSubmenu("prompt");
             activeIndexRef.current = 0;
-          } else if (cmd === "command") {
-            setActiveSubmenu("command");
-            activeIndexRef.current = 0;
           } else {
-            onSelect(cmd);
+            onSelect(`/${cmd}`);
           }
         }
       }
@@ -217,7 +195,7 @@ export function SlashMenu({ input, availableModels, availableSkills, availablePr
               key={`${model.provider}/${model.id}`}
               data-slash-item
               data-testid={`slash-model-${model.provider}-${model.id}`}
-              onClick={() => onSelect(`model ${model.provider}/${model.id}`)}
+              onClick={() => onSelect(`/model ${model.provider}/${model.id}`)}
               style={{
                 padding: "10px 16px",
                 cursor: "pointer",
@@ -348,59 +326,6 @@ export function SlashMenu({ input, availableModels, availableSkills, availablePr
     );
   }
 
-  // Command submenu (extension-registered commands)
-  if (activeSubmenu === "command") {
-    return (
-      <div
-        ref={menuRef}
-        className="slash-menu"
-        data-testid="slash-menu"
-        onKeyDown={handleKeyDown}
-      >
-        <div
-          style={{
-            padding: "8px 16px",
-            borderBottom: "1px solid #F2F2F7",
-            fontSize: 12,
-            color: "#8E8E93",
-            cursor: "pointer",
-          }}
-          onClick={() => setActiveSubmenu(null)}
-        >
-          ← Back to commands
-        </div>
-        {filteredCommands.length === 0 ? (
-          <div style={{ padding: "10px 16px", color: "#8E8E93", fontSize: 13 }}>
-            No commands available
-          </div>
-        ) : (
-          filteredCommands.map((command, i) => (
-            <div
-              key={command.name}
-              data-slash-item
-              data-testid={`slash-command-${command.name}`}
-              onClick={() => onFillInput(`/${command.name} `)}
-              style={{
-                padding: "10px 16px",
-                cursor: "pointer",
-                backgroundColor: i === activeIndexRef.current ? "#F2F2F7" : "transparent",
-                borderBottom: i < filteredCommands.length - 1 ? "1px solid #F2F2F7" : "none",
-              }}
-              onMouseEnter={() => {
-                activeIndexRef.current = i;
-              }}
-            >
-              <div style={{ fontSize: 14, fontWeight: 500 }}>/{command.name}</div>
-              {command.description && (
-                <div style={{ fontSize: 12, color: "#8E8E93" }}>{command.description}</div>
-              )}
-            </div>
-          ))
-        )}
-      </div>
-    );
-  }
-
   // Main command menu
   if (filtered.length === 0) return null;
 
@@ -426,11 +351,8 @@ export function SlashMenu({ input, availableModels, availableSkills, availablePr
             } else if (cmd.name === "prompt") {
               setActiveSubmenu("prompt");
               activeIndexRef.current = 0;
-            } else if (cmd.name === "command") {
-              setActiveSubmenu("command");
-              activeIndexRef.current = 0;
             } else {
-              onSelect(cmd.name);
+              onSelect(`/${cmd.name}`);
             }
           }}
           style={{
@@ -451,9 +373,7 @@ export function SlashMenu({ input, availableModels, availableSkills, availablePr
                 ? `${cmd.description} (${availableSkills.length} available)`
                 : cmd.name === "prompt" && availablePrompts.length > 0
                   ? `${cmd.description} (${availablePrompts.length} available)`
-                  : cmd.name === "command" && availableCommands.length > 0
-                    ? `${cmd.description} (${availableCommands.length} available)`
-                    : cmd.description}
+                  : cmd.description}
           </div>
         </div>
       ))}

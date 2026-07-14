@@ -79,8 +79,10 @@ async function parseAndHandle(
 //                           { triggerTurn:true })
 //             (skill *loading* is model-driven — the model reads SKILL.md
 //              itself; not asserted here, manual verification only)
-//   prompt  → expand via local prompts.ts → pi.sendUserMessage(expanded)
-//             (unmatched / no templates → sendUserMessage of raw "/<name> [<args>]")
+//   prompt  → parsePiCommand(input, promptNames) recognizes bare prompt
+//             names → expand via local prompts.ts → pi.sendUserMessage(expanded)
+//             (unmatched / no templates → sendUserMessage of raw "/<name> [<args>]";
+//              unknown bare name → null → ordinary user_message)
 // -----------------------------------------------------------------------
 describe("handlePiCommand — characterization (D: typed PiCommand)", () => {
   let pi: ExtensionAPI;
@@ -301,6 +303,28 @@ describe("handlePiCommand — characterization (D: typed PiCommand)", () => {
         content: "/skill:research do a thing",
         display: false,
       }, { triggerTurn: true });
+    });
+
+    // Ticket 0052: the full /prompt path — a bare prompt name (the form the
+    // webapp slash menu sends) is parsed with the prompt-names set, then the
+    // handler expands the template and delivers the EXPANDED body to pi (not
+    // the raw "/commit"). This is the acceptance criterion for /prompt.
+    it("bare prompt name + templates → expanded body reaches pi (ticket 0052)", async () => {
+      const commitTemplate = {
+        name: "commit",
+        description: "Create a commit",
+        content: "Please create a commit with message: $@",
+        filePath: "/prompts/commit.md",
+      };
+      const parsed = parsePiCommand("commit fix the bug", ["commit"])!;
+      await handlePiCommand(pi, ctx, parsed, fakeClient, fakeSessionId, [commitTemplate]);
+
+      expect(parsed).toEqual({ kind: "prompt", name: "commit", args: "fix the bug" });
+      expect(pi.sendUserMessage).toHaveBeenCalledWith(
+        "Please create a commit with message: fix the bug",
+      );
+      expect(pi.sendUserMessage).not.toHaveBeenCalledWith("/commit fix the bug");
+      expect(pi.sendMessage).not.toHaveBeenCalled();
     });
   });
 });
