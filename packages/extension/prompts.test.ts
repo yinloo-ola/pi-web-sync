@@ -167,4 +167,23 @@ describe("loadPromptTemplates", () => {
   it("returns empty array when directories do not exist", () => {
     expect(loadPromptTemplates(cwd, agentDir, false)).toHaveLength(0);
   });
+
+  // Two templates with the same name would collide: expandPromptTemplate uses
+  // templates.find(t => t.name === name) (only the first ever wins), and the
+  // webapp slash menu keys list items by name. Loading must dedupe by name
+  // so a name uniquely identifies a template.
+  it("dedupes templates that share a name (first-wins: global > project)", () => {
+    const globalDir = join(agentDir, "prompts");
+    mkdirSync(globalDir, { recursive: true });
+    writeFileSync(join(globalDir, "review.md"), "global review body");
+
+    const projectDir = join(cwd, ".pi", "prompts");
+    mkdirSync(projectDir, { recursive: true });
+    writeFileSync(join(projectDir, "review.md"), "project review body");
+
+    const templates = loadPromptTemplates(cwd, agentDir, true);
+
+    expect(templates).toHaveLength(1);
+    expect(templates[0].content).toBe("global review body");
+  });
 });

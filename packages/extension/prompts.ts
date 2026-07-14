@@ -29,7 +29,17 @@ export function loadPromptTemplates(
 
   templates.push(...loadPromptTemplatesFromPackages(agentDir));
 
-  return templates;
+  // Dedupe by name (first-wins: global > project > packages). A name must
+  // uniquely identify a template — expandPromptTemplate resolves via
+  // templates.find(t => t.name === name), and the webapp slash menu keys
+  // items by name, so a duplicate would be dead weight *and* trip React's
+  // duplicate-key warning.
+  const seen = new Set<string>();
+  return templates.filter((t) => {
+    if (seen.has(t.name)) return false;
+    seen.add(t.name);
+    return true;
+  });
 }
 
 /**
