@@ -165,12 +165,15 @@ export default function (pi: ExtensionAPI) {
       const sessionUrl = getSessionUrl(sid, webappUrl, relayUrl);
       client = new RelayClient(relayUrl, sessionId);
 
-      // Connection state drives the footer (connected URL, reconnect progress,
-      // failure). Registered before connect() so the first "connected" is caught.
+      // Connection state drives the footer (short status) and a dedicated
+      // URL widget (the full session URL on its own line, so it doesn't crowd
+      // other footer items off-screen). Registered before connect() so the
+      // first "connected" is caught.
       client.onStatus((state, attempt) => {
         connectionState = state;
         if (state === "connected") {
-          ctx.ui.setStatus("pi-web-sync", sessionUrl);
+          ctx.ui.setStatus("pi-web-sync", "● web sync");
+          ctx.ui.setWidget("pi-web-sync-url", [sessionUrl]);
         } else if (state === "reconnecting") {
           ctx.ui.setStatus("pi-web-sync", `Web sync: reconnecting (${attempt}/${MAX_RETRIES})…`);
         } else if (state === "failed") {
@@ -234,6 +237,7 @@ export default function (pi: ExtensionAPI) {
       return true;
     } catch {
       ctx.ui.notify("Web sync: relay connection failed", "error");
+      ctx.ui.setWidget("pi-web-sync-url", []);
       ctx.ui.setStatus("pi-web-sync", "");
       connectionState = null;
       sessionId = null;
@@ -281,6 +285,7 @@ export default function (pi: ExtensionAPI) {
     connectionState = null;
     assistantBuffer = "";
     ctx?.ui?.setWidget?.("pi-web-sync", []);
+    ctx?.ui?.setWidget?.("pi-web-sync-url", []);
     ctx?.ui?.setStatus?.("pi-web-sync", "");
   }
 
@@ -418,6 +423,7 @@ export default function (pi: ExtensionAPI) {
     connectionState = null;
     assistantBuffer = "";
     ctx?.ui?.setWidget?.("pi-web-sync", []);
+    ctx?.ui?.setWidget?.("pi-web-sync-url", []);
     ctx?.ui?.setStatus?.("pi-web-sync", "");
   });
 }
