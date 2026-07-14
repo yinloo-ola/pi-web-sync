@@ -54,11 +54,45 @@ describe("parsePiCommand", () => {
     });
   });
 
+  describe("prompt command", () => {
+    it("parses 'prompt:<name>' with args", () => {
+      expect(parsePiCommand("prompt:commit fix the bug")).toEqual({
+        kind: "prompt",
+        name: "commit",
+        args: "fix the bug",
+      });
+    });
+
+    it("parses 'prompt:<name>' without args", () => {
+      expect(parsePiCommand("prompt:commit")).toEqual({
+        kind: "prompt",
+        name: "commit",
+        args: undefined,
+      });
+    });
+
+    it("rejects 'prompt:' (empty name)", () => {
+      expect(parsePiCommand("prompt:")).toBeNull();
+    });
+
+    it("rejects 'prompt' without colon", () => {
+      expect(parsePiCommand("prompt")).toBeNull();
+    });
+  });
+
   describe("unknown / unparseable commands", () => {
     it("returns null for totally unknown commands", () => {
       expect(parsePiCommand("foo bar")).toBeNull();
       expect(parsePiCommand("")).toBeNull();
       expect(parsePiCommand("model")).toBeNull(); // model without args
+    });
+
+    // CURRENT behaviour (ticket 0050): a bare prompt name in the form the
+    // webapp menu sends ("/commit") is NOT recognized → null → the webapp
+    // falls through to a user_message. Ticket 0052 changes this routing.
+    it("returns null for a bare prompt name (webapp menu form) — current behaviour", () => {
+      expect(parsePiCommand("commit")).toBeNull();
+      expect(parsePiCommand("commit fix the bug")).toBeNull();
     });
   });
 });

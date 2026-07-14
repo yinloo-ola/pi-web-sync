@@ -68,6 +68,20 @@ async function parseAndHandle(
 // web app.
 // -----------------------------------------------------------------------
 
+// -----------------------------------------------------------------------
+// Command contracts (ticket 0050) — what each typed PiCommand must produce.
+// These are the behaviours ticket 0052 must keep green.
+//
+//   model   → ctx.modelRegistry.find(provider,id) → pi.setModel(model) → notify
+//   compact → ctx.compact() → notify "Compacting..."
+//   skill   → pi.sendMessage({ customType:"web-skill-command",
+//                             content:"/skill:<name> [<args>]", display:false },
+//                           { triggerTurn:true })
+//             (skill *loading* is model-driven — the model reads SKILL.md
+//              itself; not asserted here, manual verification only)
+//   prompt  → expand via local prompts.ts → pi.sendUserMessage(expanded)
+//             (unmatched / no templates → sendUserMessage of raw "/<name> [<args>]")
+// -----------------------------------------------------------------------
 describe("handlePiCommand — characterization (D: typed PiCommand)", () => {
   let pi: ExtensionAPI;
   let ctx: ExtensionCommandContext;
@@ -196,6 +210,61 @@ describe("handlePiCommand — characterization (D: typed PiCommand)", () => {
         content: "/skill:research",
         display: false,
       }, { triggerTurn: true });
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // 3b. Prompt commands (current behaviour) — see CONTRACTS above.
+  // Characterizes the EXTENSION handler only; the webapp routing that decides
+  // whether a /prompt reaches here is fixed in ticket 0052.
+  // -----------------------------------------------------------------------
+  describe("prompt command (current behaviour)", () => {
+    const commitTemplate = {
+      name: "commit",
+      description: "Create a commit",
+      content: "Please create a commit with message: $@",
+      filePath: "/prompts/commit.md",
+    };
+
+    it("expands a matching template (with args) and sendUserMessages the expanded text", async () => {
+      await handlePiCommand(
+        pi, ctx,
+        { kind: "prompt", name: "commit", args: "fix the bug" },
+        fakeClient, fakeSessionId,
+        [commitTemplate],
+      );
+      expect(pi.sendUserMessage).toHaveBeenCalledWith("Please create a commit with message: fix the bug");
+      expect(pi.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it("expands a matching template (no args) with empty substitution", async () => {
+      await handlePiCommand(
+        pi, ctx,
+        { kind: "prompt", name: "commit" },
+        fakeClient, fakeSessionId,
+        [commitTemplate],
+      );
+      expect(pi.sendUserMessage).toHaveBeenCalledWith("Please create a commit with message: ");
+    });
+
+    it("with NO matching template, sendUserMessages the raw slash text (current fallback)", async () => {
+      await handlePiCommand(
+        pi, ctx,
+        { kind: "prompt", name: "commit", args: "fix the bug" },
+        fakeClient, fakeSessionId,
+        [],
+      );
+      expect(pi.sendUserMessage).toHaveBeenCalledWith("/commit fix the bug");
+    });
+
+    it("with NO templates supplied, sendUserMessages the raw slash text", async () => {
+      await handlePiCommand(
+        pi, ctx,
+        { kind: "prompt", name: "commit" },
+        fakeClient, fakeSessionId,
+        undefined,
+      );
+      expect(pi.sendUserMessage).toHaveBeenCalledWith("/commit");
     });
   });
 
